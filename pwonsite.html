@@ -1,0 +1,2858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PWonsite — PegaWorld On-Site Scheduler</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #1a1a2e;
+  background: #f0f2f5;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+#topbar {
+  background: #1a1a2e;
+  color: #e0e0f0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 48px;
+  flex-shrink: 0;
+  padding: 0 12px 0 0;
+  overflow: hidden;
+}
+#brand {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #fff;
+  padding: 0 20px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+#brand span {
+  color: #e94560;
+}
+#view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-right: 1px solid #404068;
+  margin-right: 4px;
+}
+.view-btn {
+  background: transparent;
+  border: 1px solid #404068;
+  color: #8888aa;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.view-btn:hover { color: #e0e0f0; border-color: #8888aa; }
+.view-btn.active { background: #e94560; border-color: #e94560; color: #fff; }
+#day-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 4px;
+}
+#day-tabs::-webkit-scrollbar { display: none; }
+#day-tabs button {
+  background: transparent;
+  border: none;
+  color: #8888aa;
+  padding: 0 14px;
+  height: 48px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+#day-tabs button:hover { color: #e0e0f0; }
+#day-tabs button.active {
+  color: #fff;
+  border-bottom-color: #e94560;
+}
+#topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.topbar-btn {
+  background: #2d2d4e;
+  border: 1px solid #404068;
+  color: #c0c0e0;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.topbar-btn:hover { background: #3d3d60; color: #fff; }
+.topbar-btn.active { background: #e94560; border-color: #e94560; color: #fff; }
+
+/* ============================================================
+   FILTER PANEL
+   ============================================================ */
+#filter-panel {
+  background: #252540;
+  border-bottom: 1px solid #404068;
+  padding: 10px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+#filter-panel h3 {
+  color: #a0a0c0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+#filter-people-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.filter-team-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.filter-team-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.filter-team-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 2px 7px;
+  border-radius: 3px;
+  color: #fff;
+}
+.filter-team-toggle {
+  background: transparent;
+  border: 1px solid #404068;
+  color: #8888aa;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+.filter-team-toggle:hover { border-color: #e94560; color: #e94560; }
+.filter-team-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.filter-person-btn {
+  background: #1a1a2e;
+  border: 2px solid #404068;
+  color: #a0a0c0;
+  padding: 3px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.filter-person-btn.visible {
+  background: #e94560;
+  border-color: #e94560;
+  color: #fff;
+}
+.filter-person-btn:hover { border-color: #e94560; color: #fff; }
+.filter-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 1px;
+}
+.filter-small-btn {
+  background: transparent;
+  border: 1px solid #404068;
+  color: #8888aa;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+.filter-small-btn:hover { border-color: #e94560; color: #e94560; }
+
+/* Legend section */
+#legend-section { flex: 1; min-width: 300px; }
+#legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #a0a0c0;
+}
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   SCHEDULER LAYOUT
+   ============================================================ */
+#scheduler {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background: #f0f2f5;
+}
+
+/* Sticky header row */
+#scheduler-header {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  background: #fff;
+  border-bottom: 2px solid #e0e4ea;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+  z-index: 10;
+  overflow: hidden;
+}
+#time-gutter-header {
+  width: 64px;
+  flex-shrink: 0;
+  border-right: 1px solid #e0e4ea;
+}
+#person-headers-wrap {
+  flex: 1;
+  overflow: hidden;
+}
+#person-headers {
+  display: flex;
+  flex-direction: row;
+  will-change: transform;
+}
+.person-header {
+  width: 180px;
+  flex-shrink: 0;
+  padding: 8px 8px 6px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #1a1a2e;
+  border-right: 1px solid #e0e4ea;
+  text-align: center;
+  user-select: none;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.person-header:hover { background: #f5f7ff; }
+.person-header-name { font-weight: 700; font-size: 13px; }
+.role-tag {
+  font-size: 10px;
+  font-weight: 500;
+  color: #888;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Scrollable body */
+#scheduler-body {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+/* Time gutter */
+#time-gutter {
+  width: 64px;
+  flex-shrink: 0;
+  position: relative;
+  background: #fff;
+  border-right: 1px solid #e0e4ea;
+  z-index: 5;
+}
+.time-label {
+  position: absolute;
+  right: 8px;
+  font-size: 11px;
+  color: #888;
+  font-weight: 500;
+  line-height: 1;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.time-label.hour { color: #555; font-weight: 600; }
+
+/* Grid area */
+#grid-area {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  min-width: max-content;
+}
+
+/* Person columns */
+.person-column {
+  width: 180px;
+  position: relative;
+  flex-shrink: 0;
+  border-right: 1px solid #e0e4ea;
+  background: #fff;
+  cursor: crosshair;
+}
+/* Grid lines via background */
+.person-column::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 29px,
+      #f0f2f5 29px,
+      #f0f2f5 30px,
+      transparent 30px,
+      transparent 59px,
+      #e4e8ee 59px,
+      #e4e8ee 60px
+    );
+  z-index: 0;
+}
+
+/* Activity blocks */
+.activity {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: 5px;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 3px 5px 3px 5px;
+  z-index: 1;
+  transition: box-shadow 0.1s;
+  min-height: 14px;
+}
+.activity:hover {
+  box-shadow: 0 3px 8px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.1);
+  z-index: 2;
+}
+.activity.dragging {
+  opacity: 0.8;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+  cursor: grabbing;
+  z-index: 100;
+  pointer-events: none;
+}
+.activity-label {
+  font-weight: 700;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-time {
+  font-size: 10px;
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-notes {
+  font-size: 10px;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+}
+
+/* Resize handles */
+.resize-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 7px;
+  cursor: ns-resize;
+  z-index: 3;
+  border-radius: inherit;
+}
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 2px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 1px;
+}
+.resize-handle.top { top: 0; }
+.resize-handle.top::after { top: 2px; }
+.resize-handle.bottom { bottom: 0; }
+.resize-handle.bottom::after { bottom: 2px; }
+
+/* Draw ghost */
+.activity-ghost {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  background: #7b8cde;
+  border-radius: 5px;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 50;
+  border: 2px dashed #4a5ad4;
+}
+
+/* ============================================================
+   ROOMS VIEW
+   ============================================================ */
+#rooms-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: auto;
+  background: #f0f2f5;
+  padding: 12px;
+  gap: 12px;
+}
+.rooms-meals-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  border: 1px solid #e0e4ea;
+}
+.rooms-meals-bar h4 {
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  width: 100%;
+  margin-bottom: 4px;
+}
+.meal-band {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.rooms-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  min-width: max-content;
+}
+.room-column {
+  width: 180px;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e4ea;
+  overflow: hidden;
+}
+.room-header {
+  padding: 8px 10px;
+  font-weight: 700;
+  font-size: 12px;
+  text-align: center;
+  color: #fff;
+}
+.room-body {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 80px;
+}
+.room-act-block {
+  border-radius: 5px;
+  padding: 4px 7px;
+  font-size: 11px;
+  border-left: 4px solid transparent;
+}
+.room-act-person {
+  font-weight: 700;
+  font-size: 11px;
+}
+.room-act-time {
+  font-size: 10px;
+  opacity: 0.8;
+}
+.room-act-label {
+  font-size: 10px;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.room-empty {
+  font-size: 11px;
+  color: #bbb;
+  font-style: italic;
+  padding: 8px 6px;
+}
+
+/* ============================================================
+   MODAL OVERLAY
+   ============================================================ */
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 30, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  backdrop-filter: blur(2px);
+}
+.modal-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 340px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  position: relative;
+}
+.modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 18px;
+}
+.modal-field {
+  margin-bottom: 14px;
+}
+.modal-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+}
+.modal-field input,
+.modal-field select,
+.modal-field textarea {
+  width: 100%;
+  border: 1px solid #d0d4de;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #1a1a2e;
+  background: #f8f9fc;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+.modal-field input:focus,
+.modal-field select:focus,
+.modal-field textarea:focus { border-color: #e94560; background: #fff; }
+.modal-field textarea { resize: vertical; min-height: 60px; }
+.modal-time-preview {
+  font-size: 12px;
+  color: #888;
+  background: #f0f2f5;
+  border-radius: 5px;
+  padding: 6px 10px;
+  margin-bottom: 18px;
+  font-weight: 500;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.btn-primary {
+  background: #e94560;
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #c73350; }
+.btn-secondary {
+  background: #f0f2f5;
+  color: #555;
+  border: 1px solid #d0d4de;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-secondary:hover { background: #e0e4ea; }
+.btn-danger {
+  background: transparent;
+  color: #c0392b;
+  border: 1px solid #c0392b;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: auto;
+  transition: all 0.15s;
+}
+.btn-danger:hover { background: #c0392b; color: #fff; }
+
+/* Type color preview in select */
+#input-type-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #666;
+}
+#type-color-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* Person info modal */
+#modal-person-info {
+  max-width: 500px;
+}
+.person-info-team-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   CALL SHEET OVERLAY
+   ============================================================ */
+#callsheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  z-index: 900;
+  overflow-y: auto;
+  padding: 32px 48px;
+}
+#callsheet-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+#callsheet-controls .btn-primary { background: #1a1a2e; }
+#callsheet-controls .btn-primary:hover { background: #2d2d50; }
+.cs-header {
+  border-bottom: 3px solid #1a1a2e;
+  padding-bottom: 14px;
+  margin-bottom: 28px;
+}
+.cs-title { font-size: 22pt; font-weight: 800; color: #1a1a2e; }
+.cs-meta { display: flex; gap: 24px; margin-top: 6px; flex-wrap: wrap; }
+.cs-meta-item { font-size: 11pt; color: #555; }
+.cs-meta-item strong { color: #1a1a2e; }
+.cs-weather-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #e8f4fd;
+  border: 1px solid #b3d8f0;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-size: 11pt;
+  color: #1a5276;
+}
+.cs-section-title {
+  font-size: 13pt;
+  font-weight: 800;
+  color: #1a1a2e;
+  margin: 24px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #e0e4ea;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.cs-contacts-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.cs-contact-card {
+  border: 1px solid #e0e4ea;
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 200px;
+  flex: 1;
+}
+.cs-contact-name {
+  font-weight: 700;
+  font-size: 10.5pt;
+  color: #1a1a2e;
+}
+.cs-contact-role {
+  font-size: 9pt;
+  color: #666;
+  margin-bottom: 4px;
+}
+.cs-contact-detail {
+  font-size: 9pt;
+  color: #555;
+}
+.cs-team-header {
+  font-size: 10pt;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  display: inline-block;
+  margin: 10px 0 6px;
+  color: #fff;
+}
+.cs-person-block {
+  margin-bottom: 28px;
+  page-break-inside: avoid;
+}
+.cs-person-name {
+  font-size: 13pt;
+  font-weight: 800;
+  background: #1a1a2e;
+  color: #fff;
+  padding: 5px 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cs-first-call {
+  font-size: 10pt;
+  font-weight: 400;
+  opacity: 0.8;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.cs-empty {
+  padding: 8px 14px;
+  color: #aaa;
+  font-style: italic;
+  font-size: 10pt;
+  border: 1px solid #eee;
+  border-top: none;
+}
+.cs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10pt;
+}
+.cs-table th {
+  background: #f0f2f5;
+  text-align: left;
+  padding: 5px 10px;
+  font-size: 9pt;
+  font-weight: 700;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #ddd;
+}
+.cs-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+.cs-table tr:last-child td { border-bottom: 1px solid #ddd; }
+.cs-time-cell { white-space: nowrap; color: #555; width: 160px; font-size: 9.5pt; }
+.cs-type-cell { width: 200px; }
+.cs-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 9.5pt;
+}
+.cs-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.cs-label-cell { font-size: 9.5pt; color: #333; }
+.cs-notes-cell { color: #777; font-style: italic; font-size: 9pt; }
+.cs-room-assignments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.cs-room-chip {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: #fff;
+}
+.cs-meals-table { margin-bottom: 16px; }
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+@media print {
+  body > * { display: none !important; }
+  #callsheet-overlay { display: block !important; position: static !important; }
+  #callsheet-controls { display: none !important; }
+}
+
+/* ============================================================
+   UTILITY
+   ============================================================ */
+[hidden] { display: none !important; }
+.no-select { user-select: none; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     TOP BAR
+     ============================================================ -->
+<header id="topbar">
+  <div id="brand">PW<span>onsite</span></div>
+  <div id="view-toggle">
+    <button class="view-btn active" id="btn-view-people" data-view="people">&#128100; People</button>
+    <button class="view-btn" id="btn-view-rooms" data-view="rooms">&#127970; Rooms</button>
+  </div>
+  <nav id="day-tabs" role="tablist" aria-label="Conference Days"></nav>
+  <div id="topbar-actions">
+    <button class="topbar-btn" id="btn-add-person">+ Person</button>
+    <button class="topbar-btn" id="btn-filter-people">Filter / Legend</button>
+    <button class="topbar-btn" id="btn-toggle-collapse">Hide Empty Hours</button>
+    <button class="topbar-btn" id="btn-call-sheet">&#128203; Call Sheet</button>
+    <button class="topbar-btn" id="btn-reset-data" style="opacity:0.6" title="Wipe all data and reload from Excel import">&#8635; Reset</button>
+  </div>
+</header>
+
+<!-- ============================================================
+     FILTER + LEGEND PANEL
+     ============================================================ -->
+<aside id="filter-panel" hidden>
+  <div>
+    <h3>People by Team</h3>
+    <div id="filter-people-list"></div>
+    <div class="filter-actions" style="margin-top:8px">
+      <button class="filter-small-btn" id="btn-filter-all">Show All</button>
+      <button class="filter-small-btn" id="btn-filter-none">Hide All</button>
+    </div>
+  </div>
+  <div id="legend-section">
+    <h3>Activity Legend</h3>
+    <div id="legend-items"></div>
+  </div>
+</aside>
+
+<!-- ============================================================
+     SCHEDULER
+     ============================================================ -->
+<main id="scheduler">
+  <!-- Sticky header: time gutter spacer + person names -->
+  <div id="scheduler-header">
+    <div id="time-gutter-header"></div>
+    <div id="person-headers-wrap">
+      <div id="person-headers"></div>
+    </div>
+  </div>
+
+  <!-- Scrollable body -->
+  <div id="scheduler-body">
+    <div id="time-gutter"></div>
+    <div id="grid-area"></div>
+    <div id="rooms-area" hidden></div>
+  </div>
+</main>
+
+<!-- ============================================================
+     MODAL OVERLAY
+     ============================================================ -->
+<div id="modal-overlay" hidden>
+
+  <!-- Activity modal -->
+  <div class="modal-box" id="modal-activity" hidden>
+    <div class="modal-title" id="modal-activity-title">New Activity</div>
+    <div class="modal-field">
+      <label>Activity Type</label>
+      <select id="input-type"></select>
+      <div id="input-type-preview">
+        <span id="type-color-swatch"></span>
+        <span id="type-label-text"></span>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Custom Label <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa">(optional)</span></label>
+      <input id="input-label" type="text" placeholder="Leave blank to use type name">
+    </div>
+    <div class="modal-field">
+      <label>Notes</label>
+      <textarea id="input-notes" placeholder="Additional details..."></textarea>
+    </div>
+    <div class="modal-field" id="team-assign-section" style="border-top:1px solid #eee;padding-top:12px;margin-top:4px">
+      <label>Create for Whole Team <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa">(optional &mdash; creates copies for each team member)</span></label>
+      <select id="input-team-assign">
+        <option value="">&#8212; individual only &#8212;</option>
+      </select>
+    </div>
+    <div class="modal-time-preview" id="modal-time-preview"></div>
+    <div class="modal-actions">
+      <button class="btn-danger" id="btn-modal-delete">Delete</button>
+      <button class="btn-secondary" id="btn-modal-cancel">Cancel</button>
+      <button class="btn-primary" id="btn-modal-save">Save</button>
+    </div>
+  </div>
+
+  <!-- Add person modal -->
+  <div class="modal-box" id="modal-add-person" hidden>
+    <div class="modal-title">Add Person</div>
+    <div class="modal-field">
+      <label>Name</label>
+      <input id="input-person-name" type="text" placeholder="Enter name...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-person-cancel">Cancel</button>
+      <button class="btn-primary" id="btn-person-save">Add</button>
+    </div>
+  </div>
+
+  <!-- Person info modal -->
+  <div class="modal-box" id="modal-person-info" style="min-width:400px;max-width:520px" hidden>
+    <div class="modal-title" id="person-info-name">Person Name</div>
+    <div id="person-info-team-badge" class="person-info-team-badge" style="display:inline-block;margin-bottom:16px"></div>
+    <div class="modal-field">
+      <label>Role</label>
+      <select id="person-info-role">
+        <option value="">-- select role --</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Phone</label>
+      <input id="person-info-phone" type="text" placeholder="Phone number...">
+    </div>
+    <div class="modal-field">
+      <label>Email</label>
+      <input id="person-info-email" type="email" placeholder="Email address...">
+    </div>
+    <div class="modal-field">
+      <label>Dietary Restrictions</label>
+      <input id="person-info-dietary" type="text" placeholder="Any dietary restrictions...">
+    </div>
+    <div class="modal-field">
+      <label>Notes</label>
+      <textarea id="person-info-notes" placeholder="Other notes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" id="btn-person-info-delete" style="margin-right:auto">Delete Person</button>
+      <button class="btn-secondary" id="btn-person-info-close">Close</button>
+      <button class="btn-primary" id="btn-person-info-save">Save</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     CALL SHEET OVERLAY
+     ============================================================ -->
+<div id="callsheet-overlay" hidden>
+  <div id="callsheet-controls">
+    <button class="btn-primary" id="btn-print">&#128438; Print / Save PDF</button>
+    <button class="btn-primary" id="btn-export-zip">&#128230; Export ZIP</button>
+    <button class="btn-secondary" id="btn-callsheet-close">Close</button>
+    <span style="color:#aaa;font-size:12px;margin-left:8px">Showing schedule for: <strong id="callsheet-day-label"></strong></span>
+  </div>
+  <div id="callsheet-content"></div>
+</div>
+
+<script>
+/* ============================================================
+   SECTION 1: CONSTANTS & CONFIG
+   ============================================================ */
+const ROW_HEIGHT    = 60;   // px per 30-min slot
+const COL_WIDTH     = 180;  // px per person column
+const DAY_START_MIN = 360;  // 6:00 AM (minutes from midnight)
+const DAY_END_MIN   = 1440; // 12:00 AM midnight
+const SLOT_MIN      = 30;   // minutes per visible slot
+const SNAP_MIN      = 15;   // snap resolution in minutes
+const TOTAL_SLOTS   = (DAY_END_MIN - DAY_START_MIN) / SLOT_MIN; // 36
+const GRID_HEIGHT   = TOTAL_SLOTS * ROW_HEIGHT; // 2160px
+
+/* ============================================================
+   SECTION 2: ACTIVITY TYPES
+   ============================================================ */
+const ACTIVITY_TYPES = {
+  ER:      { label: 'Edit Room',           color: '#4A90D9', textColor: '#fff' },
+  VR:      { label: 'Video Row',           color: '#7B6FAD', textColor: '#fff' },
+  GGA:     { label: 'Grand Garden Arena',  color: '#C0392B', textColor: '#fff' },
+  BR:      { label: 'Breakout Rooms',      color: '#2980B9', textColor: '#fff' },
+  CF:      { label: 'Client Focus',        color: '#D35400', textColor: '#fff' },
+  IH:      { label: 'Innovation Hub',      color: '#27AE60', textColor: '#fff' },
+  WR:      { label: 'War Room',            color: '#8E3B46', textColor: '#fff' },
+  BFAST:   { label: 'Breakfast',           color: '#E8C08A', textColor: '#5D4037' },
+  LUNCH:   { label: 'Lunch',               color: '#F7DC6F', textColor: '#5D4037' },
+  DINNER:  { label: 'Dinner',              color: '#E59866', textColor: '#5D4037' },
+  TRAVEL:  { label: 'Travel',              color: '#95A5A6', textColor: '#fff' },
+  QC:      { label: 'Quality Control',     color: '#1ABC9C', textColor: '#fff' },
+  DIT:     { label: 'DIT',                color: '#148F77', textColor: '#fff' },
+  MM:      { label: 'Minutemen',           color: '#CA6F1E', textColor: '#fff' },
+  SETUP:   { label: 'Setup / Breakdown',   color: '#AAB7B8', textColor: '#333' },
+  MEETING: { label: 'Meeting / Standup',   color: '#5DADE2', textColor: '#fff' },
+  FREE:    { label: 'Free Time',           color: '#A9DFBF', textColor: '#1E8449' },
+};
+
+/* ============================================================
+   SECTION 2B: TEAMS & ROLES
+   ============================================================ */
+const TEAMS = {
+  team_pega:    { id:'team_pega',    name:'Pega Staff',          color:'#003D7A', textColor:'#fff' },
+  team_cr:      { id:'team_cr',      name:'Client Room',         color:'#D35400', textColor:'#fff' },
+  team_mm_ed:   { id:'team_mm_ed',   name:'Minutemen Editors',   color:'#6B3A2A', textColor:'#fff' },
+  team_mm_br:   { id:'team_mm_br',   name:'Minutemen Breakouts', color:'#1B5E20', textColor:'#fff' },
+  team_mm_prod: { id:'team_mm_prod', name:'Minutemen Producers',  color:'#4A148C', textColor:'#fff' },
+  team_ext:     { id:'team_ext',     name:'External',            color:'#546E7A', textColor:'#fff' },
+};
+
+const SHOW_ROLES = [
+  'Producer',
+  'Executive Producer',
+  'Director of Photography',
+  'Editor',
+  'Breakout Camera Operator',
+  'Breakout Technical Director',
+  'PA',
+  'Grip',
+  'Gaffer',
+  'Sound Recordist',
+  'B-roll Shooter',
+];
+
+/* ============================================================
+   SECTION 3: STATE
+   ============================================================ */
+const STATE = {
+  data: null,
+  activeDay: null,
+  dragState: null,
+  pendingNewAct: null,
+  editingActId: null,
+  collapseMode: false,
+  slotHeights: [],       // populated when collapseMode is on
+  filterPanelOpen: false,
+  activeView: 'people',  // 'people' or 'rooms'
+  weatherCache: {},
+};
+
+/* ============================================================
+   SECTION 4: STORAGE
+   ============================================================ */
+const STORAGE = {
+  KEY: 'pwonsite_data',
+
+  load() {
+    try {
+      const raw = localStorage.getItem(this.KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return null;
+  },
+
+  save() {
+    try {
+      localStorage.setItem(this.KEY, JSON.stringify(STATE.data));
+    } catch(e) {}
+  },
+
+  buildDefault() {
+    return {
+      version: 3,
+      conference: { name: 'PegaWorld 2026', venue: 'MGM Grand, Las Vegas' },
+      days: [
+        { id: 'day_fri', label: 'Friday',    date: '2026-06-05', shortLabel: 'Fri 6/5'  },
+        { id: 'day_sat', label: 'Saturday',  date: '2026-06-06', shortLabel: 'Sat 6/6'  },
+        { id: 'day_sun', label: 'Sunday',    date: '2026-06-07', shortLabel: 'Sun 6/7'  },
+        { id: 'day_mon', label: 'Monday',    date: '2026-06-08', shortLabel: 'Mon 6/8'  },
+        { id: 'day_tue', label: 'Tuesday',   date: '2026-06-09', shortLabel: 'Tue 6/9'  },
+        { id: 'day_wed', label: 'Wednesday', date: '2026-06-10', shortLabel: 'Wed 6/10' },
+      ],
+      people: [
+        { id: 'p_jason',    name: 'Jason',      visible: true, order: 0,  teamIds: ['team_pega','team_cr'],  role: 'Executive Producer',          phone: '', email: '', dietary: '', notes: '' },
+        { id: 'p_chuck',    name: 'Chuck',      visible: true, order: 1,  teamIds: ['team_pega'],           role: 'Editor',                      phone: '', email: '', dietary: '', notes: '' },
+        { id: 'p_anna',     name: 'Anna',       visible: true, order: 2,  teamIds: ['team_pega'],           role: 'Producer',                    phone: '', email: '', dietary: '', notes: '' },
+        { id: 'p_silvia',   name: 'Silvia',     visible: true, order: 3,  teamIds: ['team_pega','team_cr'], role: 'Producer',                    phone: '', email: '', dietary: '', notes: '' },
+        { id: 'p_kevin',    name: 'Kevin',      visible: true, order: 4,  teamIds: ['team_pega'],           role: 'Breakout Camera Operator',    phone: '', email: '', dietary: '', notes: '' },
+        { id: 'p_reggie',   name: 'Reggie',     visible: true, order: 5,  teamIds: ['team_pega'],           role: 'Director of Photography',     phone: '', email: '', dietary: '', notes: '' },
+        { id: 'p_liz',      name: 'Liz',        visible: true, order: 6,  teamIds: ['team_pega'],           role: 'Editor',                      phone: '', email: '', dietary: '', notes: '' },
+        { id: 'p_jake',     name: 'Jake',       visible: true, order: 7,  teamIds: ['team_pega'],           role: 'Editor',                      phone: '', email: '', dietary: '', notes: '' },
+        { id: 'p_ben',      name: 'Ben Grant',  visible: true, order: 8,  teamIds: ['team_ext'],            role: 'B-roll Shooter',              phone: '', email: '', dietary: '', notes: '' },
+        { id:'p_mm_ed1',    name:'MM Editor 1',   visible:true, order:9,  teamIds:['team_mm_ed'],   role:'Editor',                      phone:'', email:'', dietary:'', notes:'' },
+        { id:'p_mm_ed2',    name:'MM Editor 2',   visible:true, order:10, teamIds:['team_mm_ed'],   role:'Editor',                      phone:'', email:'', dietary:'', notes:'' },
+        { id:'p_mm_br1',    name:'MM Breakout 1', visible:true, order:11, teamIds:['team_mm_br'],   role:'Breakout Camera Operator',    phone:'', email:'', dietary:'', notes:'' },
+        { id:'p_mm_br2',    name:'MM Breakout 2', visible:true, order:12, teamIds:['team_mm_br'],   role:'Breakout Camera Operator',    phone:'', email:'', dietary:'', notes:'' },
+        { id:'p_mm_br3',    name:'MM Breakout 3', visible:true, order:13, teamIds:['team_mm_br'],   role:'Breakout Technical Director', phone:'', email:'', dietary:'', notes:'' },
+        { id:'p_mm_prod1',  name:'MM Producer 1', visible:true, order:14, teamIds:['team_mm_prod'], role:'Producer',                    phone:'', email:'', dietary:'', notes:'' },
+        { id:'p_mm_prod2',  name:'MM Producer 2', visible:true, order:15, teamIds:['team_mm_prod'], role:'Producer',                    phone:'', email:'', dietary:'', notes:'' },
+      ],
+      meals: [
+        { id:'meal_sat_bf',  dayId:'day_sat', type:'BFAST',  label:'Breakfast', startMinute:480,  endMinute:600,  location:'Meal Room' },
+        { id:'meal_sat_lu',  dayId:'day_sat', type:'LUNCH',  label:'Lunch',     startMinute:720,  endMinute:840,  location:'Meal Room' },
+        { id:'meal_sun_bf',  dayId:'day_sun', type:'BFAST',  label:'Breakfast', startMinute:480,  endMinute:600,  location:'Meal Room' },
+        { id:'meal_sun_lu',  dayId:'day_sun', type:'LUNCH',  label:'Lunch',     startMinute:720,  endMinute:840,  location:'Meal Room' },
+        { id:'meal_sun_di',  dayId:'day_sun', type:'DINNER', label:'Dinner',    startMinute:1050, endMinute:1170, location:'Meal Room' },
+        { id:'meal_mon_bf',  dayId:'day_mon', type:'BFAST',  label:'Breakfast', startMinute:420,  endMinute:540,  location:'Meal Room' },
+        { id:'meal_mon_lu',  dayId:'day_mon', type:'LUNCH',  label:'Lunch',     startMinute:720,  endMinute:840,  location:'Meal Room' },
+        { id:'meal_mon_di',  dayId:'day_mon', type:'DINNER', label:'Dinner',    startMinute:1050, endMinute:1170, location:'Meal Room' },
+        { id:'meal_tue_bf',  dayId:'day_tue', type:'BFAST',  label:'Breakfast', startMinute:420,  endMinute:540,  location:'Meal Room' },
+        { id:'meal_tue_lu',  dayId:'day_tue', type:'LUNCH',  label:'Lunch',     startMinute:720,  endMinute:840,  location:'Meal Room' },
+        { id:'meal_tue_di',  dayId:'day_tue', type:'DINNER', label:'Dinner',    startMinute:1050, endMinute:1170, location:'Meal Room' },
+        { id:'meal_wed_bf',  dayId:'day_wed', type:'BFAST',  label:'Breakfast', startMinute:420,  endMinute:540,  location:'Meal Room' },
+      ],
+      activities: [
+        // ---- FRIDAY ----
+        { id:'ex_f01', dayId:'day_fri', personId:'p_jason',  typeKey:'TRAVEL',  label:'Travel to MGM, Check-In & Wristband Pickup', notes:'', startMinute:900,  endMinute:960  },
+        { id:'ex_f02', dayId:'day_fri', personId:'p_chuck',  typeKey:'VR',      label:'Video Row Setup',                            notes:'', startMinute:1020, endMinute:1140 },
+        { id:'ex_f03', dayId:'day_fri', personId:'p_anna',   typeKey:'MEETING', label:'Production Meeting',                         notes:'', startMinute:1020, endMinute:1140 },
+        { id:'ex_f04', dayId:'day_fri', personId:'p_reggie', typeKey:'MEETING', label:'Production Meeting',                         notes:'', startMinute:1020, endMinute:1140 },
+
+        // ---- SATURDAY ----
+        { id:'ex_s01', dayId:'day_sat', personId:'p_reggie', typeKey:'WR',      label:'War Room Standup',                           notes:'', startMinute:420,  endMinute:450  },
+        { id:'ex_s02', dayId:'day_sat', personId:'p_jason',  typeKey:'BFAST',   label:'Breakfast',                                  notes:'', startMinute:510,  endMinute:540  },
+        { id:'ex_s03', dayId:'day_sat', personId:'p_jason',  typeKey:'MEETING', label:'Morning Video Staff Meeting',                 notes:'', startMinute:540,  endMinute:570  },
+        { id:'ex_s04', dayId:'day_sat', personId:'p_jason',  typeKey:'BR',      label:'Review BR Background',                       notes:'', startMinute:570,  endMinute:600  },
+        { id:'ex_s05', dayId:'day_sat', personId:'p_kevin',  typeKey:'BR',      label:'Review BR Background',                       notes:'', startMinute:570,  endMinute:600  },
+        { id:'ex_s06', dayId:'day_sat', personId:'p_jason',  typeKey:'VR',      label:'Set Up VR/ER',                               notes:'', startMinute:600,  endMinute:720  },
+        { id:'ex_s07', dayId:'day_sat', personId:'p_silvia', typeKey:'CF',      label:'Client Room Setup',                          notes:'', startMinute:600,  endMinute:720  },
+        { id:'ex_s08', dayId:'day_sat', personId:'p_liz',    typeKey:'VR',      label:'Set Up VR/ER',                               notes:'', startMinute:600,  endMinute:720  },
+        { id:'ex_s09', dayId:'day_sat', personId:'p_jason',  typeKey:'LUNCH',   label:'Lunch',                                      notes:'', startMinute:720,  endMinute:750  },
+        { id:'ex_s10', dayId:'day_sat', personId:'p_silvia', typeKey:'LUNCH',   label:'Lunch',                                      notes:'', startMinute:720,  endMinute:750  },
+        { id:'ex_s11', dayId:'day_sat', personId:'p_jason',  typeKey:'VR',      label:'Set Up VR/ER',                               notes:'', startMinute:750,  endMinute:990  },
+        { id:'ex_s12', dayId:'day_sat', personId:'p_kevin',  typeKey:'SETUP',   label:'Gear Prep with Ben Grant',                   notes:'', startMinute:930,  endMinute:1080 },
+        { id:'ex_s13', dayId:'day_sat', personId:'p_ben',    typeKey:'SETUP',   label:'Gear Prep with Kevin',                       notes:'', startMinute:930,  endMinute:1080 },
+        { id:'ex_s14', dayId:'day_sat', personId:'p_jason',  typeKey:'MEETING', label:'Event Team Meeting & Toast',                 notes:'', startMinute:1080, endMinute:1110 },
+        { id:'ex_s15', dayId:'day_sat', personId:'p_silvia', typeKey:'MEETING', label:'Event Team Meeting & Toast',                 notes:'', startMinute:1080, endMinute:1110 },
+        { id:'ex_s16', dayId:'day_sat', personId:'p_jason',  typeKey:'MEETING', label:'Final Check & Wrap',                         notes:'', startMinute:1110, endMinute:1140 },
+        { id:'ex_s17', dayId:'day_sat', personId:'p_silvia', typeKey:'MEETING', label:'Final Check & Wrap',                         notes:'', startMinute:1110, endMinute:1140 },
+
+        // ---- SUNDAY ----
+        { id:'ex_u01', dayId:'day_sun', personId:'p_anna',   typeKey:'BFAST',   label:'Breakfast w/ Video Team',                    notes:'', startMinute:420,  endMinute:480  },
+        { id:'ex_u02', dayId:'day_sun', personId:'p_reggie', typeKey:'WR',      label:'War Room Standup',                           notes:'', startMinute:420,  endMinute:480  },
+        { id:'ex_u03', dayId:'day_sun', personId:'p_jason',  typeKey:'BFAST',   label:'Breakfast & Team Meeting',                   notes:'', startMinute:480,  endMinute:540  },
+        { id:'ex_u04', dayId:'day_sun', personId:'p_silvia', typeKey:'BFAST',   label:'Breakfast & Team Meeting',                   notes:'', startMinute:480,  endMinute:540  },
+        { id:'ex_u05', dayId:'day_sun', personId:'p_jason',  typeKey:'SETUP',   label:'Final Network Testing',                      notes:'', startMinute:540,  endMinute:600  },
+        { id:'ex_u06', dayId:'day_sun', personId:'p_anna',   typeKey:'BR',      label:'Breakouts Walkthrough',                      notes:'', startMinute:540,  endMinute:600  },
+        { id:'ex_u07', dayId:'day_sun', personId:'p_silvia', typeKey:'MEETING', label:'Schedule Check',                             notes:'', startMinute:540,  endMinute:600  },
+        { id:'ex_u08', dayId:'day_sun', personId:'p_reggie', typeKey:'SETUP',   label:'Gear Prep Breakout Rooms',                   notes:'', startMinute:540,  endMinute:720  },
+        { id:'ex_u09', dayId:'day_sun', personId:'p_liz',    typeKey:'SETUP',   label:'Prep',                                       notes:'', startMinute:540,  endMinute:720  },
+        { id:'ex_u10', dayId:'day_sun', personId:'p_jason',  typeKey:'VR',      label:'Set Up VR/ER',                               notes:'', startMinute:600,  endMinute:720  },
+        { id:'ex_u11', dayId:'day_sun', personId:'p_silvia', typeKey:'CF',      label:'Final CR Setup / Background Test',           notes:'', startMinute:600,  endMinute:720  },
+        { id:'ex_u12', dayId:'day_sun', personId:'p_jason',  typeKey:'LUNCH',   label:'Lunch',                                      notes:'', startMinute:720,  endMinute:780  },
+        { id:'ex_u13', dayId:'day_sun', personId:'p_silvia', typeKey:'LUNCH',   label:'Lunch',                                      notes:'', startMinute:720,  endMinute:780  },
+        { id:'ex_u14', dayId:'day_sun', personId:'p_jason',  typeKey:'VR',      label:'Set Up VR/ER',                               notes:'', startMinute:780,  endMinute:1020 },
+        { id:'ex_u15', dayId:'day_sun', personId:'p_kevin',  typeKey:'SETUP',   label:'Gear Prep Breakout Rooms',                   notes:'', startMinute:780,  endMinute:990  },
+        { id:'ex_u16', dayId:'day_sun', personId:'p_liz',    typeKey:'DIT',     label:'Prep DIT',                                   notes:'', startMinute:780,  endMinute:930  },
+        { id:'ex_u17', dayId:'day_sun', personId:'p_jake',   typeKey:'ER',      label:'Edit Daily Social Videos',                   notes:'', startMinute:780,  endMinute:1095 },
+        { id:'ex_u18', dayId:'day_sun', personId:'p_silvia', typeKey:'CF',      label:'Client Room Filming \u2014 Slot 1',          notes:'', startMinute:930,  endMinute:990  },
+        { id:'ex_u19', dayId:'day_sun', personId:'p_liz',    typeKey:'DIT',     label:'DIT & Notes',                                notes:'', startMinute:930,  endMinute:990  },
+        { id:'ex_u20', dayId:'day_sun', personId:'p_chuck',  typeKey:'QC',      label:'Review / Upload CR',                         notes:'', startMinute:990,  endMinute:1020 },
+        { id:'ex_u21', dayId:'day_sun', personId:'p_silvia', typeKey:'SETUP',   label:'Reset',                                      notes:'', startMinute:990,  endMinute:1020 },
+        { id:'ex_u22', dayId:'day_sun', personId:'p_kevin',  typeKey:'BR',      label:'Final BR Testing / Connect with MM',         notes:'', startMinute:990,  endMinute:1020 },
+        { id:'ex_u23', dayId:'day_sun', personId:'p_liz',    typeKey:'ER',      label:'Social Video Production',                    notes:'', startMinute:990,  endMinute:1020 },
+        { id:'ex_u24', dayId:'day_sun', personId:'p_jason',  typeKey:'DIT',     label:'DIT & Notes',                                notes:'', startMinute:1020, endMinute:1065 },
+        { id:'ex_u25', dayId:'day_sun', personId:'p_chuck',  typeKey:'DINNER',  label:'Dinner',                                     notes:'', startMinute:1020, endMinute:1065 },
+        { id:'ex_u26', dayId:'day_sun', personId:'p_silvia', typeKey:'CF',      label:'Client Room Filming \u2014 Slot 2',          notes:'', startMinute:1020, endMinute:1140 },
+        { id:'ex_u27', dayId:'day_sun', personId:'p_liz',    typeKey:'DIT',     label:'Client UGC / DIT & Notes',                   notes:'', startMinute:1020, endMinute:1065 },
+        { id:'ex_u28', dayId:'day_sun', personId:'p_jason',  typeKey:'SETUP',   label:'Reset',                                      notes:'', startMinute:1065, endMinute:1095 },
+        { id:'ex_u29', dayId:'day_sun', personId:'p_chuck',  typeKey:'QC',      label:'Review / Upload CR',                         notes:'', startMinute:1065, endMinute:1095 },
+        { id:'ex_u30', dayId:'day_sun', personId:'p_liz',    typeKey:'ER',      label:'Social Video Production',                    notes:'', startMinute:1065, endMinute:1140 },
+        { id:'ex_u31', dayId:'day_sun', personId:'p_jason',  typeKey:'DIT',     label:'DIT & Notes',                                notes:'', startMinute:1095, endMinute:1140 },
+        { id:'ex_u32', dayId:'day_sun', personId:'p_jake',   typeKey:'ER',      label:'Final Edit Social',                          notes:'', startMinute:1095, endMinute:1140 },
+        { id:'ex_u33', dayId:'day_sun', personId:'p_jason',  typeKey:'MEETING', label:'Staff Meeting',                              notes:'', startMinute:1140, endMinute:1200 },
+        { id:'ex_u34', dayId:'day_sun', personId:'p_silvia', typeKey:'MEETING', label:'Staff Meeting',                              notes:'', startMinute:1140, endMinute:1200 },
+        { id:'ex_u35', dayId:'day_sun', personId:'p_ben',    typeKey:'FREE',    label:'Welcome Reception Shoot',                    notes:'', startMinute:1140, endMinute:1320 },
+        { id:'ex_u36', dayId:'day_sun', personId:'p_kevin',  typeKey:'BR',      label:'Breakout Room Setup',                        notes:'', startMinute:1200, endMinute:1320 },
+        { id:'ex_u37', dayId:'day_sun', personId:'p_reggie', typeKey:'BR',      label:'Breakout Room Setup',                        notes:'', startMinute:1200, endMinute:1320 },
+
+        // ---- MONDAY ----
+        { id:'ex_m01', dayId:'day_mon', personId:'p_kevin',  typeKey:'BR',      label:'Breakout Room Setup',                        notes:'', startMinute:360,  endMinute:450  },
+        { id:'ex_m02', dayId:'day_mon', personId:'p_reggie', typeKey:'BR',      label:'Breakout Room Setup',                        notes:'', startMinute:360,  endMinute:420  },
+        { id:'ex_m03', dayId:'day_mon', personId:'p_jason',  typeKey:'BFAST',   label:'Breakfast',                                  notes:'', startMinute:420,  endMinute:450  },
+        { id:'ex_m04', dayId:'day_mon', personId:'p_reggie', typeKey:'WR',      label:'War Room Standup',                           notes:'', startMinute:420,  endMinute:450  },
+        { id:'ex_m05', dayId:'day_mon', personId:'p_jason',  typeKey:'BR',      label:'BR Final Setup / Walkthrough',               notes:'', startMinute:450,  endMinute:660  },
+        { id:'ex_m06', dayId:'day_mon', personId:'p_kevin',  typeKey:'BR',      label:'BR Final Setup / Walkthrough',               notes:'', startMinute:450,  endMinute:660  },
+        { id:'ex_m07', dayId:'day_mon', personId:'p_chuck',  typeKey:'BFAST',   label:'Breakfast',                                  notes:'', startMinute:480,  endMinute:510  },
+        { id:'ex_m08', dayId:'day_mon', personId:'p_silvia', typeKey:'BFAST',   label:'Breakfast',                                  notes:'', startMinute:480,  endMinute:510  },
+        { id:'ex_m09', dayId:'day_mon', personId:'p_liz',    typeKey:'BFAST',   label:'Breakfast',                                  notes:'', startMinute:480,  endMinute:510  },
+        { id:'ex_m10', dayId:'day_mon', personId:'p_chuck',  typeKey:'GGA',     label:'Head to GGA',                                notes:'', startMinute:510,  endMinute:540  },
+        { id:'ex_m11', dayId:'day_mon', personId:'p_silvia', typeKey:'GGA',     label:'Head to GGA',                                notes:'', startMinute:510,  endMinute:540  },
+        { id:'ex_m12', dayId:'day_mon', personId:'p_liz',    typeKey:'GGA',     label:'Head to GGA',                                notes:'', startMinute:510,  endMinute:540  },
+        { id:'ex_m13', dayId:'day_mon', personId:'p_chuck',  typeKey:'GGA',     label:'Keynote (In Person)',                        notes:'', startMinute:540,  endMinute:660  },
+        { id:'ex_m14', dayId:'day_mon', personId:'p_liz',    typeKey:'GGA',     label:'Keynote (In Person)',                        notes:'', startMinute:540,  endMinute:660  },
+        { id:'ex_m15', dayId:'day_mon', personId:'p_jason',  typeKey:'QC',      label:'QC Breakouts / Upload Finals',               notes:'', startMinute:660,  endMinute:1380 },
+        { id:'ex_m16', dayId:'day_mon', personId:'p_chuck',  typeKey:'VR',      label:'Manage VR / QC Breakouts',                   notes:'', startMinute:660,  endMinute:1260 },
+        { id:'ex_m17', dayId:'day_mon', personId:'p_anna',   typeKey:'CF',      label:'HMUA Client Room',                           notes:'', startMinute:660,  endMinute:1140 },
+        { id:'ex_m18', dayId:'day_mon', personId:'p_silvia', typeKey:'CF',      label:'Client Room Filming',                        notes:'', startMinute:660,  endMinute:1140 },
+        { id:'ex_m19', dayId:'day_mon', personId:'p_kevin',  typeKey:'BR',      label:'On-Call for Breakout Rooms',                 notes:'', startMinute:660,  endMinute:1020 },
+        { id:'ex_m20', dayId:'day_mon', personId:'p_reggie', typeKey:'VR',      label:'Oversee Video @ PegaWorld',                  notes:'', startMinute:660,  endMinute:960  },
+        { id:'ex_m21', dayId:'day_mon', personId:'p_liz',    typeKey:'DIT',     label:'DIT',                                        notes:'', startMinute:660,  endMinute:960  },
+        { id:'ex_m22', dayId:'day_mon', personId:'p_jake',   typeKey:'ER',      label:'Edit Daily Social Video',                    notes:'', startMinute:660,  endMinute:1380 },
+        { id:'ex_m23', dayId:'day_mon', personId:'p_reggie', typeKey:'MEETING', label:'Chess Prep',                                 notes:'', startMinute:960,  endMinute:1020 },
+        { id:'ex_m24', dayId:'day_mon', personId:'p_liz',    typeKey:'ER',      label:'Social Video Production',                    notes:'', startMinute:960,  endMinute:1380 },
+        { id:'ex_m25', dayId:'day_mon', personId:'p_kevin',  typeKey:'MM',      label:'Oversee MM & Capture BTS',                   notes:'', startMinute:1080, endMinute:1260 },
+        { id:'ex_m26', dayId:'day_mon', personId:'p_reggie', typeKey:'VR',      label:'Oversee Video @ PegaWorld',                  notes:'', startMinute:1080, endMinute:1140 },
+        { id:'ex_m27', dayId:'day_mon', personId:'p_anna',   typeKey:'MEETING', label:'Wrap Meeting / Next Day Notes',              notes:'', startMinute:1140, endMinute:1200 },
+        { id:'ex_m28', dayId:'day_mon', personId:'p_reggie', typeKey:'MEETING', label:'Wrap Meeting / Next Day Notes',              notes:'', startMinute:1140, endMinute:1200 },
+        { id:'ex_m29', dayId:'day_mon', personId:'p_kevin',  typeKey:'MEETING', label:'Wrap Meeting with MM / Next Day Notes',      notes:'', startMinute:1260, endMinute:1380 },
+
+        // ---- TUESDAY ----
+        { id:'ex_t01', dayId:'day_tue', personId:'p_reggie', typeKey:'WR',      label:'War Room Standup',                           notes:'', startMinute:420,  endMinute:450  },
+        { id:'ex_t02', dayId:'day_tue', personId:'p_jason',  typeKey:'BFAST',   label:'Breakfast',                                  notes:'', startMinute:450,  endMinute:480  },
+        { id:'ex_t03', dayId:'day_tue', personId:'p_silvia', typeKey:'BFAST',   label:'Breakfast',                                  notes:'', startMinute:450,  endMinute:480  },
+        { id:'ex_t04', dayId:'day_tue', personId:'p_jason',  typeKey:'MEETING', label:'Morning Video Staff Meeting',                 notes:'', startMinute:480,  endMinute:510  },
+        { id:'ex_t05', dayId:'day_tue', personId:'p_silvia', typeKey:'MEETING', label:'Morning Video Staff Meeting',                 notes:'', startMinute:480,  endMinute:510  },
+        { id:'ex_t06', dayId:'day_tue', personId:'p_jason',  typeKey:'GGA',     label:'Head to GGA',                                notes:'', startMinute:510,  endMinute:540  },
+        { id:'ex_t07', dayId:'day_tue', personId:'p_silvia', typeKey:'GGA',     label:'Head to GGA',                                notes:'', startMinute:510,  endMinute:540  },
+        { id:'ex_t08', dayId:'day_tue', personId:'p_jason',  typeKey:'GGA',     label:'Keynote (In Person)',                        notes:'', startMinute:540,  endMinute:660  },
+        { id:'ex_t09', dayId:'day_tue', personId:'p_jason',  typeKey:'QC',      label:'QC Breakouts / Upload Finals',               notes:'', startMinute:660,  endMinute:1200 },
+        { id:'ex_t10', dayId:'day_tue', personId:'p_chuck',  typeKey:'VR',      label:'Manage VR / QC Breakouts',                   notes:'', startMinute:660,  endMinute:1200 },
+        { id:'ex_t11', dayId:'day_tue', personId:'p_anna',   typeKey:'CF',      label:'HMUA Client Room',                           notes:'', startMinute:660,  endMinute:930  },
+        { id:'ex_t12', dayId:'day_tue', personId:'p_silvia', typeKey:'CF',      label:'Client Room Filming',                        notes:'', startMinute:660,  endMinute:1020 },
+        { id:'ex_t13', dayId:'day_tue', personId:'p_reggie', typeKey:'VR',      label:'Oversee Video @ PegaWorld',                  notes:'', startMinute:660,  endMinute:840  },
+        { id:'ex_t14', dayId:'day_tue', personId:'p_liz',    typeKey:'DIT',     label:'DIT',                                        notes:'', startMinute:660,  endMinute:960  },
+        { id:'ex_t15', dayId:'day_tue', personId:'p_jake',   typeKey:'ER',      label:'Edit Daily Social Videos',                   notes:'', startMinute:660,  endMinute:1320 },
+        { id:'ex_t16', dayId:'day_tue', personId:'p_kevin',  typeKey:'MEETING', label:'Chess Prep',                                 notes:'', startMinute:840,  endMinute:960  },
+        { id:'ex_t17', dayId:'day_tue', personId:'p_anna',   typeKey:'MEETING', label:'Chess Prep',                                 notes:'', startMinute:930,  endMinute:960  },
+        { id:'ex_t18', dayId:'day_tue', personId:'p_anna',   typeKey:'MEETING', label:'Chess Tournament',                           notes:'', startMinute:960,  endMinute:1080 },
+        { id:'ex_t19', dayId:'day_tue', personId:'p_kevin',  typeKey:'MEETING', label:'Chess Tournament',                           notes:'', startMinute:960,  endMinute:1080 },
+        { id:'ex_t20', dayId:'day_tue', personId:'p_liz',    typeKey:'ER',      label:'Social Video Production',                    notes:'', startMinute:960,  endMinute:1320 },
+        { id:'ex_t21', dayId:'day_tue', personId:'p_silvia', typeKey:'CF',      label:'Client Room Breakdown & Dinner',             notes:'', startMinute:1020, endMinute:1320 },
+        { id:'ex_t22', dayId:'day_tue', personId:'p_anna',   typeKey:'SETUP',   label:'Chess Breakdown',                            notes:'', startMinute:1080, endMinute:1140 },
+        { id:'ex_t23', dayId:'day_tue', personId:'p_kevin',  typeKey:'SETUP',   label:'Chess Breakdown',                            notes:'', startMinute:1080, endMinute:1140 },
+        { id:'ex_t24', dayId:'day_tue', personId:'p_kevin',  typeKey:'SETUP',   label:'Gear Breakdown & Pack',                      notes:'', startMinute:1140, endMinute:1320 },
+        { id:'ex_t25', dayId:'day_tue', personId:'p_jason',  typeKey:'ER',      label:'ER Breakdown',                               notes:'', startMinute:1200, endMinute:1380 },
+        { id:'ex_t26', dayId:'day_tue', personId:'p_chuck',  typeKey:'ER',      label:'ER Breakdown',                               notes:'', startMinute:1200, endMinute:1380 },
+        { id:'ex_t27', dayId:'day_tue', personId:'p_liz',    typeKey:'TRAVEL',  label:'Flying Home at Midnight',                    notes:'', startMinute:1320, endMinute:1380 },
+
+        // ---- WEDNESDAY ----
+        { id:'ex_w01', dayId:'day_wed', personId:'p_reggie', typeKey:'WR',      label:'War Room Standup',                           notes:'', startMinute:390,  endMinute:420  },
+        { id:'ex_w02', dayId:'day_wed', personId:'p_liz',    typeKey:'TRAVEL',  label:'Travel Day',                                 notes:'', startMinute:420,  endMinute:1200 },
+        { id:'ex_w03', dayId:'day_wed', personId:'p_jason',  typeKey:'VR',      label:'Breakfast + Video Row Breakdown & Rental Returns', notes:'', startMinute:420, endMinute:540 },
+        { id:'ex_w04', dayId:'day_wed', personId:'p_jason',  typeKey:'TRAVEL',  label:'LAS-BOS Flight',                             notes:'', startMinute:720,  endMinute:1080 },
+      ],
+      settings: { hideUnscheduledHours: false, visibleDayId: 'day_sat', weather: {} },
+    };
+  },
+};
+
+/* ============================================================
+   SECTION 5: UTILITIES
+   ============================================================ */
+function uid() {
+  return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function formatMinutes(totalMin) {
+  const h24 = Math.floor(totalMin / 60) % 24;
+  const m   = totalMin % 60;
+  const ampm = h24 >= 12 ? 'PM' : 'AM';
+  const h12  = h24 % 12 || 12;
+  return h12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+}
+
+function formatTimeRange(s, e) {
+  return formatMinutes(s) + ' \u2013 ' + formatMinutes(e);
+}
+
+function formatDate(dateStr) {
+  // "2026-06-06" -> "Saturday, June 6, 2026"
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ---- Time-pixel conversions ----
+// These are mode-aware: in collapseMode they consult STATE.slotHeights
+
+function topFromMinutes(totalMin) {
+  if (!STATE.collapseMode) {
+    return (totalMin - DAY_START_MIN) / SLOT_MIN * ROW_HEIGHT;
+  }
+  // Find the right slot
+  const slotIdx = Math.floor((totalMin - DAY_START_MIN) / SLOT_MIN);
+  const clamped = Math.max(0, Math.min(slotIdx, TOTAL_SLOTS - 1));
+  const slot = STATE.slotHeights[clamped];
+  if (!slot) return 0;
+  const frac = (totalMin - slot.slotStart) / SLOT_MIN;
+  return slot.top + frac * slot.height;
+}
+
+function minutesFromTop(px) {
+  if (!STATE.collapseMode) {
+    return DAY_START_MIN + px / ROW_HEIGHT * SLOT_MIN;
+  }
+  // Find slot at this px
+  let found = STATE.slotHeights[STATE.slotHeights.length - 1];
+  for (let i = 0; i < STATE.slotHeights.length; i++) {
+    const s = STATE.slotHeights[i];
+    if (px < s.top + s.height) { found = s; break; }
+  }
+  const frac = Math.min(1, (px - found.top) / Math.max(found.height, 1));
+  return found.slotStart + frac * SLOT_MIN;
+}
+
+function snapToGrid(min) {
+  return Math.round(min / SNAP_MIN) * SNAP_MIN;
+}
+
+function totalGridHeight() {
+  if (!STATE.collapseMode) return GRID_HEIGHT;
+  const last = STATE.slotHeights[STATE.slotHeights.length - 1];
+  return last ? last.top + last.height : GRID_HEIGHT;
+}
+
+/* ============================================================
+   SECTION 6: RENDER
+   ============================================================ */
+const RENDER = {
+
+  all() {
+    this.tabs();
+    this.personHeaders();
+    this.timeGutter();
+    this.grid();
+    this.filterPanel();
+  },
+
+  tabs() {
+    const nav = document.getElementById('day-tabs');
+    nav.innerHTML = '';
+    STATE.data.days.forEach(day => {
+      const btn = document.createElement('button');
+      btn.role = 'tab';
+      btn.dataset.dayId = day.id;
+      btn.textContent = day.shortLabel;
+      if (STATE.activeDay && STATE.activeDay.id === day.id) btn.classList.add('active');
+      nav.appendChild(btn);
+    });
+  },
+
+  personHeaders() {
+    const wrap = document.getElementById('person-headers');
+    wrap.innerHTML = '';
+    const visible = this._visiblePeople();
+    visible.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'person-header';
+      div.dataset.personId = p.id;
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'person-header-name';
+      nameDiv.textContent = p.name;
+      div.appendChild(nameDiv);
+
+      if (p.role) {
+        const roleDiv = document.createElement('div');
+        roleDiv.className = 'role-tag';
+        roleDiv.textContent = p.role;
+        div.appendChild(roleDiv);
+      }
+
+      (p.teamIds || []).forEach(tid => {
+        const team = TEAMS[tid];
+        if (!team) return;
+        const badge = document.createElement('div');
+        badge.className = 'team-badge';
+        badge.textContent = team.name;
+        badge.style.background = team.color;
+        badge.style.color = team.textColor;
+        div.appendChild(badge);
+      });
+
+      wrap.appendChild(div);
+    });
+    // Ensure header wrap width matches grid
+    wrap.style.width = (visible.length * COL_WIDTH) + 'px';
+  },
+
+  timeGutter() {
+    const gutter = document.getElementById('time-gutter');
+    gutter.innerHTML = '';
+    const h = totalGridHeight();
+    gutter.style.height = h + 'px';
+
+    if (STATE.collapseMode) {
+      // Only render labels for full-height (active) slots; skip the collapsed end/start padding
+      STATE.slotHeights.forEach(slot => {
+        if (slot.height < ROW_HEIGHT) return; // skip collapsed slots entirely
+        const isHour = slot.slotStart % 60 === 0;
+        const label = document.createElement('div');
+        label.className = 'time-label' + (isHour ? ' hour' : '');
+        label.textContent = formatMinutes(slot.slotStart);
+        label.style.top = slot.top + 'px';
+        gutter.appendChild(label);
+      });
+    } else {
+      // Standard: label every 30 min, style differently on hours
+      for (let slotIdx = 0; slotIdx <= TOTAL_SLOTS; slotIdx++) {
+        const totalMin = DAY_START_MIN + slotIdx * SLOT_MIN;
+        if (totalMin > DAY_END_MIN) break;
+        const isHour = totalMin % 60 === 0;
+        const label = document.createElement('div');
+        label.className = 'time-label' + (isHour ? ' hour' : '');
+        label.textContent = formatMinutes(totalMin);
+        label.style.top = topFromMinutes(totalMin) + 'px';
+        gutter.appendChild(label);
+      }
+    }
+  },
+
+  grid() {
+    if (STATE.collapseMode) this._buildCollapseMap();
+
+    const gridArea = document.getElementById('grid-area');
+    gridArea.innerHTML = '';
+
+    const h = totalGridHeight();
+    const visible = this._visiblePeople();
+
+    visible.forEach(person => {
+      const col = document.createElement('div');
+      col.className = 'person-column';
+      col.dataset.personId = person.id;
+      col.style.height = h + 'px';
+
+      // Activity blocks
+      const acts = STATE.data.activities.filter(
+        a => a.dayId === STATE.activeDay.id && a.personId === person.id
+      );
+      acts.forEach(act => col.appendChild(this.activityBlock(act)));
+
+      gridArea.appendChild(col);
+    });
+
+    // Re-attach drag listeners
+    INTERACTION.attachGridListeners();
+  },
+
+  activityBlock(act) {
+    const type = ACTIVITY_TYPES[act.typeKey] || ACTIVITY_TYPES.MEETING;
+    const el = document.createElement('div');
+    el.className = 'activity';
+    el.dataset.actId = act.id;
+    el.style.backgroundColor = type.color;
+    el.style.color = type.textColor;
+
+    const top = topFromMinutes(act.startMinute);
+    const height = Math.max(topFromMinutes(act.endMinute) - top, 14);
+    el.style.top = top + 'px';
+    el.style.height = height + 'px';
+
+    const labelText = act.label || type.label;
+    const timeText  = formatTimeRange(act.startMinute, act.endMinute);
+
+    const showTime   = height >= 28;
+    const showNotes  = height >= 44 && act.notes;
+
+    el.innerHTML =
+      '<div class="resize-handle top" data-resize="top"></div>' +
+      '<div class="activity-label">' + escapeHtml(labelText) + '</div>' +
+      (showTime  ? '<div class="activity-time">'  + escapeHtml(timeText)    + '</div>' : '') +
+      (showNotes ? '<div class="activity-notes">' + escapeHtml(act.notes)   + '</div>' : '') +
+      '<div class="resize-handle bottom" data-resize="bottom"></div>';
+
+    return el;
+  },
+
+  filterPanel() {
+    // People toggles - grouped by team
+    const list = document.getElementById('filter-people-list');
+    list.innerHTML = '';
+
+    // Group people by teamIds (person may appear under multiple teams)
+    const grouped = {};
+    const noTeam = [];
+    STATE.data.people.forEach(p => {
+      const ids = p.teamIds || [];
+      if (ids.length) {
+        ids.forEach(tid => {
+          if (TEAMS[tid]) {
+            if (!grouped[tid]) grouped[tid] = [];
+            grouped[tid].push(p);
+          }
+        });
+      } else {
+        noTeam.push(p);
+      }
+    });
+
+    // Render each team group
+    Object.keys(TEAMS).forEach(teamId => {
+      const people = grouped[teamId];
+      if (!people || !people.length) return;
+      const team = TEAMS[teamId];
+
+      const groupEl = document.createElement('div');
+      groupEl.className = 'filter-team-group';
+
+      const headerEl = document.createElement('div');
+      headerEl.className = 'filter-team-header';
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'filter-team-label';
+      labelEl.textContent = team.name;
+      labelEl.style.background = team.color;
+      labelEl.style.color = team.textColor;
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'filter-team-toggle';
+      toggleBtn.textContent = 'Toggle All';
+      toggleBtn.dataset.teamId = teamId;
+
+      headerEl.appendChild(labelEl);
+      headerEl.appendChild(toggleBtn);
+      groupEl.appendChild(headerEl);
+
+      const pillsEl = document.createElement('div');
+      pillsEl.className = 'filter-team-pills';
+
+      people.sort((a, b) => a.order - b.order).forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'filter-person-btn' + (p.visible ? ' visible' : '');
+        btn.dataset.personId = p.id;
+        btn.textContent = p.name;
+        pillsEl.appendChild(btn);
+      });
+
+      groupEl.appendChild(pillsEl);
+      list.appendChild(groupEl);
+    });
+
+    // No-team people
+    if (noTeam.length) {
+      const groupEl = document.createElement('div');
+      groupEl.className = 'filter-team-group';
+      const headerEl = document.createElement('div');
+      headerEl.className = 'filter-team-header';
+      const labelEl = document.createElement('span');
+      labelEl.className = 'filter-team-label';
+      labelEl.textContent = 'Unassigned';
+      labelEl.style.background = '#888';
+      labelEl.style.color = '#fff';
+      headerEl.appendChild(labelEl);
+      groupEl.appendChild(headerEl);
+      const pillsEl = document.createElement('div');
+      pillsEl.className = 'filter-team-pills';
+      noTeam.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'filter-person-btn' + (p.visible ? ' visible' : '');
+        btn.dataset.personId = p.id;
+        btn.textContent = p.name;
+        pillsEl.appendChild(btn);
+      });
+      groupEl.appendChild(pillsEl);
+      list.appendChild(groupEl);
+    }
+
+    // Legend
+    const legendEl = document.getElementById('legend-items');
+    legendEl.innerHTML = '';
+    Object.entries(ACTIVITY_TYPES).forEach(([key, val]) => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.innerHTML =
+        '<div class="legend-dot" style="background:' + val.color + '"></div>' +
+        '<span>' + escapeHtml(key) + ' &ndash; ' + escapeHtml(val.label) + '</span>';
+      legendEl.appendChild(item);
+    });
+  },
+
+  _visiblePeople() {
+    return STATE.data.people
+      .filter(p => p.visible)
+      .sort((a, b) => a.order - b.order);
+  },
+
+  _buildCollapseMap() {
+    const visibleIds = new Set(STATE.data.people.filter(p => p.visible).map(p => p.id));
+    const occupied = new Set();
+
+    STATE.data.activities
+      .filter(a => a.dayId === STATE.activeDay.id && visibleIds.has(a.personId))
+      .forEach(a => {
+        let m = Math.floor((a.startMinute - DAY_START_MIN) / SLOT_MIN) * SLOT_MIN + DAY_START_MIN;
+        while (m < a.endMinute) {
+          occupied.add(m);
+          m += SLOT_MIN;
+        }
+      });
+
+    // Find the first and last occupied slots
+    let firstOccupied = DAY_END_MIN;
+    let lastOccupied  = DAY_START_MIN;
+    for (let m = DAY_START_MIN; m < DAY_END_MIN; m += SLOT_MIN) {
+      if (occupied.has(m)) {
+        if (m < firstOccupied) firstOccupied = m;
+        if (m > lastOccupied)  lastOccupied  = m;
+      }
+    }
+    // If nothing scheduled, collapse everything
+    const hasAny = occupied.size > 0;
+
+    STATE.slotHeights = [];
+    let top = 0;
+    for (let m = DAY_START_MIN; m < DAY_END_MIN; m += SLOT_MIN) {
+      // Collapse only slots before the first activity or after the last activity ends
+      const isBefore = m < firstOccupied;
+      const isAfter  = hasAny && m > lastOccupied;
+      const height = (!hasAny || isBefore || isAfter) ? 4 : ROW_HEIGHT;
+      STATE.slotHeights.push({ slotStart: m, height, top });
+      top += height;
+    }
+  },
+};
+
+/* ============================================================
+   SECTION 7: INTERACTION (Drag Engine)
+   ============================================================ */
+const INTERACTION = {
+
+  _lastActClick: { actId: null, time: 0 }, // for manual double-click detection
+
+  attachGridListeners() {
+    const gridArea = document.getElementById('grid-area');
+    gridArea.onmousedown = this.onMouseDown;
+  },
+
+  onMouseDown(e) {
+    if (e.button !== 0) return;
+
+    const col = e.target.closest('.person-column');
+    if (!col) return;
+
+    const resizeHandle = e.target.closest('.resize-handle');
+    const actEl = resizeHandle ? resizeHandle.closest('.activity') : e.target.closest('.activity');
+
+    if (resizeHandle && actEl) {
+      // MODE: RESIZE
+      const actId = actEl.dataset.actId;
+      const act = CRUD.findById(actId);
+      if (!act) return;
+      STATE.dragState = {
+        mode: 'RESIZE',
+        actId,
+        ghostEl: actEl,
+        startPageY: e.pageY,
+        resizeEdge: resizeHandle.dataset.resize,
+        originalStart: act.startMinute,
+        originalEnd:   act.endMinute,
+        currentStart:  act.startMinute,
+        currentEnd:    act.endMinute,
+      };
+      actEl.classList.add('dragging');
+      e.preventDefault();
+      return;
+    }
+
+    if (actEl && !resizeHandle) {
+      // Check for double-click (two mousedowns on same activity within 400ms)
+      const actId = actEl.dataset.actId;
+      const now = Date.now();
+      const last = INTERACTION._lastActClick;
+      if (last.actId === actId && now - last.time < 400) {
+        INTERACTION._lastActClick = { actId: null, time: 0 };
+        MODAL.openEditActivity(actId);
+        e.preventDefault();
+        return;
+      }
+      INTERACTION._lastActClick = { actId, time: now };
+
+      // MODE: MOVE
+      const act = CRUD.findById(actId);
+      if (!act) return;
+      const rect = actEl.getBoundingClientRect();
+      STATE.dragState = {
+        mode: 'MOVE',
+        actId,
+        personId: act.personId,
+        ghostEl: actEl,
+        startPageY: e.pageY,
+        startPageX: e.pageX,
+        offsetY: e.clientY - rect.top,
+        originalStart: act.startMinute,
+        originalEnd:   act.endMinute,
+        currentStart:  act.startMinute,
+        currentEnd:    act.endMinute,
+      };
+      actEl.classList.add('dragging');
+      e.preventDefault();
+      return;
+    }
+
+    // MODE: DRAW — click on empty column space
+    const body = document.getElementById('scheduler-body');
+    const colRect = col.getBoundingClientRect();
+    const relY = e.clientY - colRect.top;
+    const startMin = snapToGrid(minutesFromTop(Math.max(0, relY)));
+
+    const ghost = document.createElement('div');
+    ghost.className = 'activity-ghost';
+    ghost.style.top = topFromMinutes(startMin) + 'px';
+    ghost.style.height = '0px';
+    col.appendChild(ghost);
+
+    STATE.dragState = {
+      mode: 'DRAW',
+      personId: col.dataset.personId,
+      ghostEl: ghost,
+      anchorMin: startMin,
+      currentStart: startMin,
+      currentEnd: startMin,
+    };
+    e.preventDefault();
+  },
+
+  onMouseMove(e) {
+    const ds = STATE.dragState;
+    if (!ds) return;
+
+    const body    = document.getElementById('scheduler-body');
+    const gridEl  = document.getElementById('grid-area');
+    const gridRect = gridEl.getBoundingClientRect();
+    const scrollTop  = body.scrollTop;
+    const scrollLeft = body.scrollLeft;
+
+    const relY = e.clientY - gridRect.top;
+    const relX = e.clientX - gridRect.left;
+
+    if (ds.mode === 'DRAW') {
+      const curMin = snapToGrid(minutesFromTop(Math.max(0, relY)));
+      if (curMin >= ds.anchorMin) {
+        ds.currentStart = ds.anchorMin;
+        ds.currentEnd   = Math.max(curMin, ds.anchorMin + SNAP_MIN);
+      } else {
+        ds.currentStart = curMin;
+        ds.currentEnd   = ds.anchorMin;
+      }
+      // Clamp
+      ds.currentStart = Math.max(DAY_START_MIN, ds.currentStart);
+      ds.currentEnd   = Math.min(DAY_END_MIN,   ds.currentEnd);
+      ds.ghostEl.style.top    = topFromMinutes(ds.currentStart) + 'px';
+      ds.ghostEl.style.height = Math.max(topFromMinutes(ds.currentEnd) - topFromMinutes(ds.currentStart), 4) + 'px';
+      return;
+    }
+
+    if (ds.mode === 'RESIZE') {
+      const deltaY   = e.pageY - ds.startPageY;
+      const deltaPx  = deltaY;
+      const deltaMin = snapToGrid(deltaPx / ROW_HEIGHT * SLOT_MIN);
+      if (ds.resizeEdge === 'bottom') {
+        ds.currentEnd = Math.max(ds.originalEnd + deltaMin, ds.originalStart + SNAP_MIN);
+        ds.currentEnd = Math.min(ds.currentEnd, DAY_END_MIN);
+      } else {
+        ds.currentStart = Math.min(ds.originalStart + deltaMin, ds.originalEnd - SNAP_MIN);
+        ds.currentStart = Math.max(ds.currentStart, DAY_START_MIN);
+      }
+      ds.ghostEl.style.top    = topFromMinutes(ds.currentStart) + 'px';
+      ds.ghostEl.style.height = Math.max(topFromMinutes(ds.currentEnd) - topFromMinutes(ds.currentStart), 14) + 'px';
+      return;
+    }
+
+    if (ds.mode === 'MOVE') {
+      // Determine target person column from X
+      const visible = STATE.data.people.filter(p => p.visible).sort((a,b) => a.order - b.order);
+      const colIdx  = Math.floor(relX / COL_WIDTH);
+      const target  = visible[Math.max(0, Math.min(colIdx, visible.length - 1))];
+      if (target) ds.personId = target.id;
+
+      // Y position
+      const dur = ds.originalEnd - ds.originalStart;
+      let newStart = snapToGrid(minutesFromTop(Math.max(0, relY - ds.offsetY / ROW_HEIGHT * SLOT_MIN)));
+      newStart = Math.max(DAY_START_MIN, Math.min(newStart, DAY_END_MIN - dur));
+      ds.currentStart = newStart;
+      ds.currentEnd   = newStart + dur;
+
+      // Re-parent ghost to target column if needed
+      if (target) {
+        const targetCol = document.querySelector('.person-column[data-person-id="' + target.id + '"]');
+        if (targetCol && ds.ghostEl.parentElement !== targetCol) {
+          targetCol.appendChild(ds.ghostEl);
+        }
+      }
+      ds.ghostEl.style.top    = topFromMinutes(ds.currentStart) + 'px';
+      ds.ghostEl.style.height = Math.max(topFromMinutes(ds.currentEnd) - topFromMinutes(ds.currentStart), 14) + 'px';
+    }
+  },
+
+  onMouseUp(e) {
+    const ds = STATE.dragState;
+    if (!ds) return;
+    STATE.dragState = null;
+
+    if (ds.mode === 'DRAW') {
+      ds.ghostEl.remove();
+      const duration = ds.currentEnd - ds.currentStart;
+      if (duration >= SNAP_MIN) {
+        MODAL.openNewActivity({
+          dayId: STATE.activeDay.id,
+          personId: ds.personId,
+          startMinute: ds.currentStart,
+          endMinute:   ds.currentEnd,
+        });
+      }
+      return;
+    }
+
+    if (ds.mode === 'RESIZE') {
+      ds.ghostEl.classList.remove('dragging');
+      if (ds.currentStart !== ds.originalStart || ds.currentEnd !== ds.originalEnd) {
+        CRUD.updateActivity(ds.actId, {
+          startMinute: ds.currentStart,
+          endMinute:   ds.currentEnd,
+        });
+      }
+      return;
+    }
+
+    if (ds.mode === 'MOVE') {
+      ds.ghostEl.classList.remove('dragging');
+      const act = CRUD.findById(ds.actId);
+      if (act && (ds.personId !== act.personId || ds.currentStart !== ds.originalStart || ds.currentEnd !== ds.originalEnd)) {
+        CRUD.updateActivity(ds.actId, {
+          personId:    ds.personId,
+          startMinute: ds.currentStart,
+          endMinute:   ds.currentEnd,
+        });
+      }
+    }
+  },
+
+};
+
+// Global drag mouse listeners (attached once)
+document.addEventListener('mousemove', e => INTERACTION.onMouseMove(e));
+document.addEventListener('mouseup',   e => INTERACTION.onMouseUp(e));
+
+/* ============================================================
+   SECTION 8: CRUD
+   ============================================================ */
+const CRUD = {
+  findById(id) {
+    return STATE.data.activities.find(a => a.id === id);
+  },
+
+  createActivity({ dayId, personId, typeKey, label, notes, startMinute, endMinute }) {
+    const act = { id: uid(), dayId, personId, typeKey,
+                  label: label || '', notes: notes || '',
+                  startMinute, endMinute };
+    STATE.data.activities.push(act);
+    STORAGE.save();
+    RENDER.grid();
+    return act;
+  },
+
+  updateActivity(id, changes) {
+    const act = this.findById(id);
+    if (!act) return;
+    Object.assign(act, changes);
+    STORAGE.save();
+    RENDER.grid();
+  },
+
+  deleteActivity(id) {
+    STATE.data.activities = STATE.data.activities.filter(a => a.id !== id);
+    STORAGE.save();
+    RENDER.grid();
+  },
+
+  addPerson(name) {
+    const maxOrder = STATE.data.people.reduce((m, p) => Math.max(m, p.order), -1);
+    const person = { id: uid(), name: name.trim(), visible: true, order: maxOrder + 1,
+                     teamIds: [], role: '', phone: '', email: '', dietary: '', notes: '' };
+    STATE.data.people.push(person);
+    STORAGE.save();
+    RENDER.all();
+    return person;
+  },
+};
+
+/* ============================================================
+   SECTION 9: MODAL
+   ============================================================ */
+const MODAL = {
+  _updateTypeSwatch() {
+    const key   = document.getElementById('input-type').value;
+    const type  = ACTIVITY_TYPES[key];
+    if (type) {
+      document.getElementById('type-color-swatch').style.background = type.color;
+      document.getElementById('type-label-text').textContent = type.label;
+    }
+  },
+
+  openNewActivity(pending) {
+    STATE.pendingNewAct  = pending;
+    STATE.editingActId   = null;
+    document.getElementById('modal-activity-title').textContent = 'New Activity';
+    document.getElementById('input-type').value  = 'MEETING';
+    document.getElementById('input-label').value = '';
+    document.getElementById('input-notes').value = '';
+    document.getElementById('input-team-assign').value = '';
+    document.getElementById('modal-time-preview').textContent =
+      formatTimeRange(pending.startMinute, pending.endMinute);
+    document.getElementById('btn-modal-delete').style.display = 'none';
+    this._updateTypeSwatch();
+    this.show('modal-activity');
+    setTimeout(() => document.getElementById('input-type').focus(), 50);
+  },
+
+  openEditActivity(actId) {
+    const act = CRUD.findById(actId);
+    if (!act) return;
+    STATE.editingActId  = actId;
+    STATE.pendingNewAct = null;
+    document.getElementById('modal-activity-title').textContent = 'Edit Activity';
+    document.getElementById('input-type').value  = act.typeKey;
+    document.getElementById('input-label').value = act.label;
+    document.getElementById('input-notes').value = act.notes;
+    document.getElementById('input-team-assign').value = '';
+    document.getElementById('modal-time-preview').textContent =
+      formatTimeRange(act.startMinute, act.endMinute);
+    document.getElementById('btn-modal-delete').style.display = '';
+    this._updateTypeSwatch();
+    this.show('modal-activity');
+  },
+
+  show(modalId) {
+    document.getElementById('modal-overlay').hidden = false;
+    document.querySelectorAll('#modal-overlay .modal-box')
+      .forEach(m => m.hidden = true);
+    document.getElementById(modalId).hidden = false;
+  },
+
+  hide() {
+    document.getElementById('modal-overlay').hidden = true;
+    STATE.editingActId  = null;
+    STATE.pendingNewAct = null;
+  },
+
+  handleSave() {
+    const typeKey    = document.getElementById('input-type').value;
+    const label      = document.getElementById('input-label').value.trim();
+    const notes      = document.getElementById('input-notes').value.trim();
+    const teamAssign = document.getElementById('input-team-assign').value;
+
+    if (STATE.pendingNewAct) {
+      if (teamAssign && TEAMS[teamAssign]) {
+        // Create activity for each visible person in the selected team
+        const teamPeople = STATE.data.people.filter(p => p.visible && (p.teamIds||[]).includes(teamAssign));
+        teamPeople.forEach(p => {
+          CRUD.createActivity({ ...STATE.pendingNewAct, personId: p.id, typeKey, label, notes });
+        });
+        // Also create for the original person if not already in the team
+        const originalInTeam = teamPeople.some(p => p.id === STATE.pendingNewAct.personId);
+        if (!originalInTeam) {
+          CRUD.createActivity({ ...STATE.pendingNewAct, typeKey, label, notes });
+        }
+      } else {
+        CRUD.createActivity({ ...STATE.pendingNewAct, typeKey, label, notes });
+      }
+    } else if (STATE.editingActId) {
+      CRUD.updateActivity(STATE.editingActId, { typeKey, label, notes });
+    }
+    this.hide();
+  },
+
+  handleDelete() {
+    if (STATE.editingActId && confirm('Delete this activity?')) {
+      CRUD.deleteActivity(STATE.editingActId);
+      this.hide();
+    }
+  },
+};
+
+/* ============================================================
+   SECTION 10: FILTER
+   ============================================================ */
+const FILTER = {
+  toggle() {
+    STATE.filterPanelOpen = !STATE.filterPanelOpen;
+    document.getElementById('filter-panel').hidden = !STATE.filterPanelOpen;
+    document.getElementById('btn-filter-people').classList.toggle('active', STATE.filterPanelOpen);
+  },
+
+  setPerson(personId, visible) {
+    const person = STATE.data.people.find(p => p.id === personId);
+    if (!person) return;
+    person.visible = visible;
+    STORAGE.save();
+    RENDER.filterPanel();
+    RENDER.personHeaders();
+    RENDER.grid();
+    RENDER.timeGutter();
+  },
+
+  setAll(visible) {
+    STATE.data.people.forEach(p => p.visible = visible);
+    STORAGE.save();
+    RENDER.filterPanel();
+    RENDER.personHeaders();
+    RENDER.grid();
+    RENDER.timeGutter();
+  },
+
+  setTeam(teamId, visible) { // toggle all people who belong to this team
+    STATE.data.people.forEach(p => {
+      if ((p.teamIds||[]).includes(teamId)) p.visible = visible;
+    });
+    STORAGE.save();
+    RENDER.filterPanel();
+    RENDER.personHeaders();
+    RENDER.grid();
+    RENDER.timeGutter();
+  },
+};
+
+/* ============================================================
+   SECTION 10B: PERSON CARD
+   ============================================================ */
+const PERSONCARD = {
+  currentId: null,
+
+  open(personId) {
+    const person = STATE.data.people.find(p => p.id === personId);
+    if (!person) return;
+    this.currentId = personId;
+
+    document.getElementById('person-info-name').textContent = person.name;
+
+    // Render team checkboxes
+    const badgeEl = document.getElementById('person-info-team-badge');
+    badgeEl.innerHTML = '';
+    const currentIds = person.teamIds || [];
+    Object.values(TEAMS).forEach(team => {
+      const lbl = document.createElement('label');
+      lbl.style.cssText = 'display:inline-flex;align-items:center;gap:5px;margin:3px 6px 3px 0;cursor:pointer;font-size:12px;font-weight:500;';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = team.id;
+      cb.checked = currentIds.includes(team.id);
+      const swatch = document.createElement('span');
+      swatch.style.cssText = 'display:inline-block;width:10px;height:10px;border-radius:2px;background:' + team.color;
+      lbl.appendChild(cb);
+      lbl.appendChild(swatch);
+      lbl.appendChild(document.createTextNode(team.name));
+      badgeEl.appendChild(lbl);
+    });
+
+    document.getElementById('person-info-role').value    = person.role    || '';
+    document.getElementById('person-info-phone').value   = person.phone   || '';
+    document.getElementById('person-info-email').value   = person.email   || '';
+    document.getElementById('person-info-dietary').value = person.dietary || '';
+    document.getElementById('person-info-notes').value   = person.notes   || '';
+
+    MODAL.show('modal-person-info');
+  },
+
+  save() {
+    const person = STATE.data.people.find(p => p.id === this.currentId);
+    if (!person) return;
+    person.teamIds = Array.from(
+      document.querySelectorAll('#person-info-team-badge input[type=checkbox]:checked')
+    ).map(cb => cb.value);
+    person.role    = document.getElementById('person-info-role').value;
+    person.phone   = document.getElementById('person-info-phone').value.trim();
+    person.email   = document.getElementById('person-info-email').value.trim();
+    person.dietary = document.getElementById('person-info-dietary').value.trim();
+    person.notes   = document.getElementById('person-info-notes').value.trim();
+    STORAGE.save();
+    RENDER.personHeaders();
+    FILTER.render();
+    this.close();
+  },
+
+  deletePerson() {
+    const person = STATE.data.people.find(p => p.id === this.currentId);
+    if (!person) return;
+    if (!confirm(`Delete "${person.name}" and all their activities? This cannot be undone.`)) return;
+    // Remove all activities for this person
+    STATE.data.activities = STATE.data.activities.filter(a => a.personId !== this.currentId);
+    // Remove the person
+    STATE.data.people = STATE.data.people.filter(p => p.id !== this.currentId);
+    STORAGE.save();
+    RENDER.all();
+    this.close();
+  },
+
+  close() {
+    this.currentId = null;
+    MODAL.hide();
+  },
+};
+
+/* ============================================================
+   SECTION 11: ROOMS VIEW
+   ============================================================ */
+const ROOMS = {
+  ROOM_KEYS: ['ER','VR','GGA','BR','CF','IH','WR'],
+
+  render() {
+    const roomsArea = document.getElementById('rooms-area');
+    roomsArea.innerHTML = '';
+
+    const dayId = STATE.activeDay.id;
+    const visiblePeople = STATE.data.people.filter(p => p.visible);
+    const visibleIds = new Set(visiblePeople.map(p => p.id));
+
+    // Meals bar
+    const mealsForDay = (STATE.data.meals || []).filter(m => m.dayId === dayId);
+    if (mealsForDay.length) {
+      const mealsBar = document.createElement('div');
+      mealsBar.className = 'rooms-meals-bar';
+      const h4 = document.createElement('h4');
+      h4.textContent = 'Meals';
+      mealsBar.appendChild(h4);
+      mealsForDay.forEach(meal => {
+        const mtype = ACTIVITY_TYPES[meal.type] || {};
+        const band = document.createElement('div');
+        band.className = 'meal-band';
+        band.style.background = mtype.color || '#eee';
+        band.style.color = mtype.textColor || '#333';
+        band.innerHTML =
+          '<strong>' + escapeHtml(meal.label) + '</strong>' +
+          '<span>' + escapeHtml(formatTimeRange(meal.startMinute, meal.endMinute)) + '</span>' +
+          '<span style="opacity:0.8">' + escapeHtml(meal.location) + '</span>';
+        mealsBar.appendChild(band);
+      });
+      roomsArea.appendChild(mealsBar);
+    }
+
+    // Rooms grid
+    const grid = document.createElement('div');
+    grid.className = 'rooms-grid';
+
+    this.ROOM_KEYS.forEach(roomKey => {
+      const type = ACTIVITY_TYPES[roomKey];
+      if (!type) return;
+
+      // Gather all activities in this room for visible people on active day
+      const roomActs = STATE.data.activities.filter(a =>
+        a.dayId === dayId &&
+        a.typeKey === roomKey &&
+        visibleIds.has(a.personId)
+      ).sort((a, b) => a.startMinute - b.startMinute);
+
+      const col = document.createElement('div');
+      col.className = 'room-column';
+
+      const header = document.createElement('div');
+      header.className = 'room-header';
+      header.style.background = type.color;
+      header.textContent = roomKey + ' \u2014 ' + type.label;
+      col.appendChild(header);
+
+      const body = document.createElement('div');
+      body.className = 'room-body';
+
+      if (!roomActs.length) {
+        const empty = document.createElement('div');
+        empty.className = 'room-empty';
+        empty.textContent = 'No activities';
+        body.appendChild(empty);
+      } else {
+        roomActs.forEach(act => {
+          const person = STATE.data.people.find(p => p.id === act.personId);
+          const personTeam = person && person.teamId && TEAMS[person.teamId] ? TEAMS[person.teamId] : null;
+
+          const block = document.createElement('div');
+          block.className = 'room-act-block';
+          block.style.background = type.color + '22';
+          block.style.borderLeftColor = personTeam ? personTeam.color : type.color;
+
+          const personName = document.createElement('div');
+          personName.className = 'room-act-person';
+          personName.textContent = person ? person.name : 'Unknown';
+
+          const timeDiv = document.createElement('div');
+          timeDiv.className = 'room-act-time';
+          timeDiv.textContent = formatTimeRange(act.startMinute, act.endMinute);
+
+          const labelDiv = document.createElement('div');
+          labelDiv.className = 'room-act-label';
+          labelDiv.textContent = act.label || type.label;
+
+          block.appendChild(personName);
+          block.appendChild(timeDiv);
+          block.appendChild(labelDiv);
+          body.appendChild(block);
+        });
+      }
+
+      col.appendChild(body);
+      grid.appendChild(col);
+    });
+
+    roomsArea.appendChild(grid);
+  },
+};
+
+/* ============================================================
+   SECTION 12: VIEWS
+   ============================================================ */
+const VIEWS = {
+  setView(viewName) {
+    STATE.activeView = viewName;
+
+    const gridArea       = document.getElementById('grid-area');
+    const timeGutter     = document.getElementById('time-gutter');
+    const schedulerHdr   = document.getElementById('scheduler-header');
+    const roomsArea      = document.getElementById('rooms-area');
+
+    document.querySelectorAll('.view-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.view === viewName);
+    });
+
+    if (viewName === 'people') {
+      gridArea.hidden    = false;
+      timeGutter.hidden  = false;
+      schedulerHdr.hidden = false;
+      roomsArea.hidden   = true;
+      RENDER.all();
+    } else {
+      gridArea.hidden    = true;
+      timeGutter.hidden  = true;
+      schedulerHdr.hidden = false;
+      roomsArea.hidden   = false;
+      ROOMS.render();
+    }
+  },
+};
+
+/* ============================================================
+   SECTION 13: CALL SHEET
+   ============================================================ */
+const CALLSHEET = {
+
+  _getWeather(dayId) {
+    if (STATE.data.settings && STATE.data.settings.weather && STATE.data.settings.weather[dayId]) {
+      return STATE.data.settings.weather[dayId];
+    }
+    return '';
+  },
+
+  generate(dayId) {
+    const day = STATE.data.days.find(d => d.id === dayId);
+    const visible = STATE.data.people
+      .filter(p => p.visible)
+      .sort((a, b) => a.order - b.order);
+
+    const weather = this._getWeather(dayId);
+    const mealsForDay = (STATE.data.meals || []).filter(m => m.dayId === dayId);
+
+    // Find general call time (earliest activity across all visible people)
+    const allActs = STATE.data.activities.filter(a =>
+      a.dayId === dayId && visible.some(p => p.id === a.personId)
+    );
+    const generalCall = allActs.length
+      ? formatMinutes(Math.min(...allActs.map(a => a.startMinute)))
+      : 'TBD';
+
+    let html = '<div class="cs-header">';
+    html += '<div class="cs-title">' + escapeHtml(STATE.data.conference.name) + ' &mdash; Call Sheet</div>';
+    html += '<div class="cs-meta">';
+    html += '<div class="cs-meta-item"><strong>' + escapeHtml(day.label) + '</strong> &mdash; ' + formatDate(day.date) + '</div>';
+    html += '<div class="cs-meta-item">' + escapeHtml(STATE.data.conference.venue) + '</div>';
+    html += '<div class="cs-meta-item">Generated: ' + new Date().toLocaleString() + '</div>';
+    html += '</div></div>';
+
+    if (weather) {
+      html += '<div class="cs-weather-bar">&#9728; <strong>Weather:</strong> ' + escapeHtml(weather) + '</div>';
+    }
+
+    html += '<div class="cs-meta-item" style="font-size:12pt;font-weight:700;margin-bottom:12px">General Call: ' + escapeHtml(generalCall) + '</div>';
+
+    // Key Contacts section - grouped by team
+    html += '<div class="cs-section-title">Key Contacts</div>';
+    html += '<div class="cs-contacts-grid">';
+    Object.keys(TEAMS).forEach(teamId => {
+      const teamPeople = visible.filter(p => (p.teamIds||[]).includes(teamId));
+      if (!teamPeople.length) return;
+      const team = TEAMS[teamId];
+      html += '<div style="width:100%"><span class="cs-team-header" style="background:' + team.color + ';color:' + team.textColor + '">' + escapeHtml(team.name) + '</span></div>';
+      teamPeople.forEach(p => {
+        html += '<div class="cs-contact-card">';
+        html += '<div class="cs-contact-name">' + escapeHtml(p.name) + '</div>';
+        html += '<div class="cs-contact-role">' + escapeHtml(p.role || '') + '</div>';
+        if (p.phone) html += '<div class="cs-contact-detail">&#128222; ' + escapeHtml(p.phone) + '</div>';
+        if (p.email) html += '<div class="cs-contact-detail">&#9993; ' + escapeHtml(p.email) + '</div>';
+        html += '</div>';
+      });
+    });
+    html += '</div>';
+
+    // Room Assignments section
+    html += '<div class="cs-section-title">Room Assignments</div>';
+    const roomKeys = ['ER','VR','GGA','BR','CF','IH','WR'];
+    html += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px">';
+    roomKeys.forEach(rk => {
+      const type = ACTIVITY_TYPES[rk];
+      const roomPeople = visible.filter(p =>
+        STATE.data.activities.some(a => a.dayId === dayId && a.personId === p.id && a.typeKey === rk)
+      );
+      if (!roomPeople.length) return;
+      html += '<div style="min-width:160px">';
+      html += '<div style="font-weight:700;font-size:9.5pt;padding:3px 8px;border-radius:4px;background:' + type.color + ';color:' + type.textColor + ';margin-bottom:5px">' + escapeHtml(rk) + ' &mdash; ' + escapeHtml(type.label) + '</div>';
+      roomPeople.forEach(p => {
+        html += '<div style="font-size:9pt;padding:2px 0">' + escapeHtml(p.name) +
+          (p.role ? ' <span style="color:#888">(' + escapeHtml(p.role) + ')</span>' : '') + '</div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+
+    // Meals
+    if (mealsForDay.length) {
+      html += '<div class="cs-section-title">Meals</div>';
+      html += '<table class="cs-table cs-meals-table"><thead><tr><th>Meal</th><th>Time</th><th>Location</th></tr></thead><tbody>';
+      mealsForDay.forEach(meal => {
+        html += '<tr><td>' + escapeHtml(meal.label) + '</td>';
+        html += '<td class="cs-time-cell">' + escapeHtml(formatTimeRange(meal.startMinute, meal.endMinute)) + '</td>';
+        html += '<td>' + escapeHtml(meal.location) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+
+    // Individual Schedules
+    html += '<div class="cs-section-title">Individual Schedules</div>';
+    visible.forEach(person => {
+      const acts = STATE.data.activities
+        .filter(a => a.dayId === dayId && a.personId === person.id)
+        .sort((a, b) => a.startMinute - b.startMinute);
+
+      const firstCall = acts.length ? formatMinutes(acts[0].startMinute) : 'No activities';
+
+      html += '<div class="cs-person-block">';
+      html += '<div class="cs-person-name">' + escapeHtml(person.name) +
+              (person.role ? ' <span style="font-size:9pt;font-weight:400;opacity:0.7">' + escapeHtml(person.role) + '</span>' : '') +
+              '<span class="cs-first-call">First call: ' + escapeHtml(firstCall) + '</span></div>';
+
+      if (!acts.length) {
+        html += '<div class="cs-empty">No activities scheduled</div>';
+      } else {
+        html += '<table class="cs-table"><thead><tr>' +
+          '<th>Time</th><th>Type</th><th>Label</th><th>Notes</th>' +
+          '</tr></thead><tbody>';
+        acts.forEach(act => {
+          const type = ACTIVITY_TYPES[act.typeKey] || ACTIVITY_TYPES.MEETING;
+          html += '<tr>';
+          html += '<td class="cs-time-cell">' + escapeHtml(formatTimeRange(act.startMinute, act.endMinute)) + '</td>';
+          html += '<td class="cs-type-cell"><span class="cs-type-badge">' +
+            '<span class="cs-dot" style="background:' + type.color + '"></span>' +
+            escapeHtml(act.typeKey) + '</span></td>';
+          html += '<td class="cs-label-cell">' + escapeHtml(act.label || type.label) + '</td>';
+          html += '<td class="cs-notes-cell">' + escapeHtml(act.notes) + '</td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+      html += '</div>';
+    });
+
+    return html;
+  },
+
+  generateForPerson(dayId, personId) {
+    const day = STATE.data.days.find(d => d.id === dayId);
+    const person = STATE.data.people.find(p => p.id === personId);
+    if (!person) return '';
+
+    const weather = this._getWeather(dayId);
+    const mealsForDay = (STATE.data.meals || []).filter(m => m.dayId === dayId);
+    const isProducer = person.role && (person.role.includes('Producer') || person.role.includes('Executive Producer'));
+
+    if (isProducer) {
+      return this.generate(dayId);
+    }
+
+    const acts = STATE.data.activities
+      .filter(a => a.dayId === dayId && a.personId === personId)
+      .sort((a, b) => a.startMinute - b.startMinute);
+
+    const firstCall = acts.length ? formatMinutes(acts[0].startMinute) : 'TBD';
+    const visibleAll = STATE.data.people.filter(p => p.visible);
+
+    let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Call Sheet - ' + escapeHtml(person.name) + ' - ' + escapeHtml(day.shortLabel) + '</title>';
+    html += '<style>body{font-family:Arial,sans-serif;font-size:12pt;color:#1a1a2e;padding:24px 32px;max-width:800px;margin:0 auto}';
+    html += 'h1{font-size:20pt;font-weight:800;border-bottom:3px solid #1a1a2e;padding-bottom:10px;margin-bottom:16px}';
+    html += 'h2{font-size:13pt;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #e0e4ea;padding-bottom:4px;margin:20px 0 10px}';
+    html += 'table{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:16px}';
+    html += 'th{background:#f0f2f5;text-align:left;padding:5px 10px;font-size:9pt;font-weight:700;border-bottom:1px solid #ddd}';
+    html += 'td{padding:5px 10px;border-bottom:1px solid #f0f0f0;vertical-align:top}';
+    html += '.call-time{font-size:20pt;font-weight:800;color:#e94560;margin:12px 0}';
+    html += '.weather-bar{background:#e8f4fd;border:1px solid #b3d8f0;border-radius:6px;padding:8px 14px;margin-bottom:16px;font-size:11pt;color:#1a5276}';
+    html += '</style></head><body>';
+
+    html += '<h1>' + escapeHtml(STATE.data.conference.name) + ' &mdash; Call Sheet</h1>';
+    html += '<p><strong>' + escapeHtml(day.label) + '</strong> &mdash; ' + formatDate(day.date) + '</p>';
+    html += '<p>' + escapeHtml(STATE.data.conference.venue) + '</p>';
+    html += '<p>Generated: ' + new Date().toLocaleString() + '</p>';
+
+    if (weather) {
+      html += '<div class="weather-bar">&#9728; <strong>Weather:</strong> ' + escapeHtml(weather) + '</div>';
+    }
+
+    html += '<h2>Your Call Time</h2>';
+    html += '<div class="call-time">' + escapeHtml(firstCall) + '</div>';
+
+    // Rooms today
+    const myRoomKeys = [...new Set(acts.map(a => a.typeKey).filter(k => ['ER','VR','GGA','BR','CF','IH','WR'].includes(k)))];
+    if (myRoomKeys.length) {
+      html += '<h2>Your Rooms Today</h2>';
+      myRoomKeys.forEach(rk => {
+        const type = ACTIVITY_TYPES[rk];
+        const roomColleagues = visibleAll.filter(p =>
+          p.id !== personId &&
+          STATE.data.activities.some(a => a.dayId === dayId && a.personId === p.id && a.typeKey === rk)
+        );
+        html += '<div style="margin-bottom:12px">';
+        html += '<div style="font-weight:700;font-size:10pt;background:' + type.color + ';color:' + type.textColor + ';padding:3px 8px;border-radius:4px;display:inline-block;margin-bottom:4px">' + escapeHtml(rk) + ' &mdash; ' + escapeHtml(type.label) + '</div>';
+        if (roomColleagues.length) {
+          html += '<div style="font-size:9pt;color:#555">Also in this room: ';
+          html += roomColleagues.map(p => escapeHtml(p.name) + (p.phone ? ' (' + escapeHtml(p.phone) + ')' : '')).join(', ');
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+    }
+
+    // Your schedule
+    html += '<h2>Your Schedule</h2>';
+    if (!acts.length) {
+      html += '<p style="color:#aaa;font-style:italic">No activities scheduled.</p>';
+    } else {
+      html += '<table><thead><tr><th>Time</th><th>Activity</th><th>Notes</th></tr></thead><tbody>';
+      acts.forEach(act => {
+        const type = ACTIVITY_TYPES[act.typeKey] || ACTIVITY_TYPES.MEETING;
+        html += '<tr>';
+        html += '<td style="white-space:nowrap;color:#555;width:140px">' + escapeHtml(formatTimeRange(act.startMinute, act.endMinute)) + '</td>';
+        html += '<td><span style="background:' + type.color + ';color:' + type.textColor + ';padding:1px 5px;border-radius:3px;font-size:9pt;margin-right:6px">' + escapeHtml(act.typeKey) + '</span>' + escapeHtml(act.label || type.label) + '</td>';
+        html += '<td style="color:#777;font-style:italic">' + escapeHtml(act.notes) + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    }
+
+    // Meals
+    if (mealsForDay.length) {
+      html += '<h2>Meals</h2>';
+      html += '<table><thead><tr><th>Meal</th><th>Time</th><th>Location</th></tr></thead><tbody>';
+      mealsForDay.forEach(meal => {
+        html += '<tr><td>' + escapeHtml(meal.label) + '</td>';
+        html += '<td style="white-space:nowrap;color:#555">' + escapeHtml(formatTimeRange(meal.startMinute, meal.endMinute)) + '</td>';
+        html += '<td>' + escapeHtml(meal.location) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+
+    // Emergency contacts
+    const producers = visibleAll.filter(p =>
+      p.role && (p.role.includes('Producer') || p.role.includes('Executive Producer'))
+    );
+    if (producers.length) {
+      html += '<h2>Show Contacts</h2>';
+      html += '<table><thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Email</th></tr></thead><tbody>';
+      producers.forEach(p => {
+        html += '<tr><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(p.role || '') + '</td>';
+        html += '<td>' + escapeHtml(p.phone || '') + '</td><td>' + escapeHtml(p.email || '') + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+
+    html += '</body></html>';
+    return html;
+  },
+
+  open() {
+    const dayId = STATE.activeDay.id;
+    const day   = STATE.data.days.find(d => d.id === dayId);
+    document.getElementById('callsheet-day-label').textContent = day ? day.label + ' (' + day.date + ')' : '';
+    document.getElementById('callsheet-content').innerHTML = this.generate(dayId);
+    document.getElementById('callsheet-overlay').hidden = false;
+  },
+
+  close() {
+    document.getElementById('callsheet-overlay').hidden = true;
+  },
+};
+
+/* ============================================================
+   SECTION 14: ZIP EXPORT
+   ============================================================ */
+const ZIP = {
+  async export(dayId) {
+    if (typeof JSZip === 'undefined') {
+      alert('ZIP export requires internet connection to load JSZip. Please try again.');
+      return;
+    }
+    const zip = new JSZip();
+    const day = STATE.data.days.find(d => d.id === dayId);
+    const visiblePeople = STATE.data.people.filter(p => p.visible).sort((a, b) => a.order - b.order);
+
+    visiblePeople.forEach(person => {
+      const html = CALLSHEET.generateForPerson(dayId, person.id);
+      const safeName = person.name.replace(/[^a-z0-9]/gi, '_');
+      zip.file('CallSheet_' + (day ? day.shortLabel.replace(/[^a-z0-9]/gi, '_') : dayId) + '_' + safeName + '.html', html);
+    });
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'CallSheets_' + (day ? day.shortLabel.replace(/[^a-z0-9]/gi, '_') : dayId) + '.zip';
+    a.click();
+  },
+};
+
+/* ============================================================
+   SECTION 15: WEATHER
+   ============================================================ */
+const WEATHER = {
+  WMO_CODES: {
+    0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Fog', 48: 'Depositing rime fog',
+    51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle',
+    61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
+    71: 'Slight snowfall', 73: 'Moderate snowfall', 75: 'Heavy snowfall',
+    80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
+    85: 'Slight snow showers', 86: 'Heavy snow showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Thunderstorm with heavy hail',
+  },
+
+  async fetch() {
+    try {
+      const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.17&longitude=-115.14&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=America%2FLos_Angeles&start_date=2026-06-05&end_date=2026-06-10';
+      const resp = await fetch(url);
+      if (!resp.ok) return;
+      const json = await resp.json();
+      const dates = json.daily.time;
+      const codes = json.daily.weathercode;
+      const tmax  = json.daily.temperature_2m_max;
+      const tmin  = json.daily.temperature_2m_min;
+
+      if (!STATE.data.settings.weather) STATE.data.settings.weather = {};
+
+      STATE.data.days.forEach(day => {
+        const idx = dates.indexOf(day.date);
+        if (idx === -1) return;
+        const code = codes[idx];
+        const desc = this.WMO_CODES[code] || ('Code ' + code);
+        const maxC = Math.round(tmax[idx]);
+        const minC = Math.round(tmin[idx]);
+        const maxF = Math.round(maxC * 9/5 + 32);
+        const minF = Math.round(minC * 9/5 + 32);
+        STATE.data.settings.weather[day.id] =
+          desc + ', High ' + maxF + '\u00b0F/' + maxC + '\u00b0C, Low ' + minF + '\u00b0F/' + minC + '\u00b0C';
+      });
+      STORAGE.save();
+    } catch(e) {
+      // Silently fail
+    }
+  },
+};
+
+/* ============================================================
+   SECTION 16: INIT
+   ============================================================ */
+function init() {
+  // 1. Load or build data
+  const _saved = STORAGE.load();
+  STATE.data = (_saved && _saved.version >= 3) ? _saved : STORAGE.buildDefault();
+
+  // Ensure new fields exist on loaded data
+  if (!STATE.data.meals) STATE.data.meals = [];
+  if (!STATE.data.settings.weather) STATE.data.settings.weather = {};
+
+  // Ensure all people have new fields
+  STATE.data.people.forEach(p => {
+    if (!p.teamIds) p.teamIds = p.teamId ? [p.teamId] : []; delete p.teamId;
+    if (p.role    === undefined) p.role    = '';
+    if (p.phone   === undefined) p.phone   = '';
+    if (p.email   === undefined) p.email   = '';
+    if (p.dietary === undefined) p.dietary = '';
+    if (p.notes   === undefined) p.notes   = '';
+  });
+
+  // 2. Set active day
+  const savedDayId = STATE.data.settings && STATE.data.settings.visibleDayId;
+  STATE.activeDay  = STATE.data.days.find(d => d.id === savedDayId) || STATE.data.days[0];
+  STATE.collapseMode = !!(STATE.data.settings && STATE.data.settings.hideUnscheduledHours);
+
+  // 3. Build type select options (once)
+  const select = document.getElementById('input-type');
+  Object.entries(ACTIVITY_TYPES).forEach(([key, val]) => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = key + ' \u2014 ' + val.label;
+    select.appendChild(opt);
+  });
+
+  // 4. Build team assign options
+  const teamSelect = document.getElementById('input-team-assign');
+  Object.values(TEAMS).forEach(team => {
+    const opt = document.createElement('option');
+    opt.value = team.id;
+    opt.textContent = team.name;
+    teamSelect.appendChild(opt);
+  });
+
+  // 5. Build person info role options
+  const roleSelect = document.getElementById('person-info-role');
+  SHOW_ROLES.forEach(role => {
+    const opt = document.createElement('option');
+    opt.value = role;
+    opt.textContent = role;
+    roleSelect.appendChild(opt);
+  });
+
+  // 6. Render everything
+  RENDER.all();
+
+  // 7. Update collapse button state
+  if (STATE.collapseMode) {
+    document.getElementById('btn-toggle-collapse').classList.add('active');
+  }
+
+  // ---- Event: Day tabs ----
+  document.getElementById('day-tabs').addEventListener('click', e => {
+    const btn = e.target.closest('[data-day-id]');
+    if (!btn) return;
+    STATE.activeDay = STATE.data.days.find(d => d.id === btn.dataset.dayId) || STATE.activeDay;
+    if (STATE.data.settings) STATE.data.settings.visibleDayId = STATE.activeDay.id;
+    STORAGE.save();
+    RENDER.tabs();
+    if (STATE.activeView === 'people') {
+      RENDER.timeGutter();
+      RENDER.grid();
+    } else {
+      ROOMS.render();
+    }
+  });
+
+  // ---- Event: View toggle ----
+  document.getElementById('view-toggle').addEventListener('click', e => {
+    const btn = e.target.closest('.view-btn');
+    if (!btn) return;
+    VIEWS.setView(btn.dataset.view);
+  });
+
+  // ---- Event: Add person ----
+  document.getElementById('btn-add-person').addEventListener('click', () => {
+    document.getElementById('input-person-name').value = '';
+    MODAL.show('modal-add-person');
+    setTimeout(() => document.getElementById('input-person-name').focus(), 50);
+  });
+
+  // ---- Event: Filter panel ----
+  document.getElementById('btn-filter-people').addEventListener('click', () => FILTER.toggle());
+  document.getElementById('btn-filter-all').addEventListener('click', () => FILTER.setAll(true));
+  document.getElementById('btn-filter-none').addEventListener('click', () => FILTER.setAll(false));
+
+  document.getElementById('filter-people-list').addEventListener('click', e => {
+    // Individual person pill
+    const personBtn = e.target.closest('[data-person-id]');
+    if (personBtn) {
+      const person = STATE.data.people.find(p => p.id === personBtn.dataset.personId);
+      if (person) FILTER.setPerson(person.id, !person.visible);
+      return;
+    }
+    // Team toggle button
+    const teamBtn = e.target.closest('[data-team-id]');
+    if (teamBtn) {
+      const teamId = teamBtn.dataset.teamId;
+      const teamPeople = STATE.data.people.filter(p => (p.teamIds||[]).includes(teamId));
+      const allVisible = teamPeople.every(p => p.visible);
+      FILTER.setTeam(teamId, !allVisible);
+    }
+  });
+
+  // ---- Event: Collapse toggle ----
+  document.getElementById('btn-toggle-collapse').addEventListener('click', () => {
+    STATE.collapseMode = !STATE.collapseMode;
+    if (STATE.data.settings) STATE.data.settings.hideUnscheduledHours = STATE.collapseMode;
+    STORAGE.save();
+    document.getElementById('btn-toggle-collapse').classList.toggle('active', STATE.collapseMode);
+    RENDER.timeGutter();
+    RENDER.grid();
+  });
+
+  // ---- Event: Call sheet ----
+  document.getElementById('btn-call-sheet').addEventListener('click', () => CALLSHEET.open());
+  document.getElementById('btn-callsheet-close').addEventListener('click', () => CALLSHEET.close());
+  document.getElementById('btn-export-zip').addEventListener('click', () => ZIP.export(STATE.activeDay.id));
+
+  // ---- Event: Reset ----
+  document.getElementById('btn-reset-data').addEventListener('click', () => {
+    if (confirm('Reset all data to the Excel import? This will erase any changes you\'ve made.')) {
+      localStorage.removeItem(STORAGE.KEY);
+      STATE.data = STORAGE.buildDefault();
+      const savedDayId = STATE.data.settings.visibleDayId;
+      STATE.activeDay  = STATE.data.days.find(d => d.id === savedDayId) || STATE.data.days[0];
+      STATE.collapseMode = false;
+      document.getElementById('btn-toggle-collapse').classList.remove('active');
+      STORAGE.save();
+      RENDER.all();
+    }
+  });
+
+  document.getElementById('btn-print').addEventListener('click', () => window.print());
+
+  // ---- Event: Modal buttons ----
+  document.getElementById('btn-modal-save').addEventListener('click', () => MODAL.handleSave());
+  document.getElementById('btn-modal-delete').addEventListener('click', () => MODAL.handleDelete());
+  document.getElementById('btn-modal-cancel').addEventListener('click', () => MODAL.hide());
+
+  document.getElementById('btn-person-save').addEventListener('click', () => {
+    const name = document.getElementById('input-person-name').value.trim();
+    if (name) { CRUD.addPerson(name); MODAL.hide(); }
+  });
+  document.getElementById('btn-person-cancel').addEventListener('click', () => MODAL.hide());
+
+  // Enter key in person name field
+  document.getElementById('input-person-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-person-save').click();
+  });
+
+  // ---- Event: Person info modal ----
+  document.getElementById('btn-person-info-save').addEventListener('click', () => PERSONCARD.save());
+  document.getElementById('btn-person-info-close').addEventListener('click', () => PERSONCARD.close());
+  document.getElementById('btn-person-info-delete').addEventListener('click', () => PERSONCARD.deletePerson());
+
+  // ---- Event: Person header click -> person card ----
+  document.getElementById('person-headers').addEventListener('click', e => {
+    const header = e.target.closest('.person-header');
+    if (header && header.dataset.personId) {
+      PERSONCARD.open(header.dataset.personId);
+    }
+  });
+
+  // Click outside modal to close
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) MODAL.hide();
+  });
+
+  // Escape key closes modals / call sheet
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (!document.getElementById('modal-overlay').hidden) { MODAL.hide(); return; }
+      if (!document.getElementById('callsheet-overlay').hidden) { CALLSHEET.close(); return; }
+    }
+  });
+
+  // Type select live preview
+  document.getElementById('input-type').addEventListener('change', () => MODAL._updateTypeSwatch());
+
+  // ---- Sync person header horizontal scroll with grid ----
+  document.getElementById('scheduler-body').addEventListener('scroll', e => {
+    document.getElementById('person-headers').style.transform =
+      'translateX(-' + e.target.scrollLeft + 'px)';
+  });
+
+  // Fetch weather in background
+  WEATHER.fetch();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
