@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PWonsite — PegaWorld On-Site Scheduler</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 /* ============================================================
    RESET & BASE
@@ -908,6 +910,7 @@ body {
   </div>
   <nav id="day-tabs" role="tablist" aria-label="Conference Days"></nav>
   <div id="topbar-actions">
+    <span id="sync-status" title="Sync status" style="display:none;align-items:center;gap:5px;font-size:11px;opacity:0.8;margin-right:4px"></span>
     <button class="topbar-btn" id="btn-add-person">+ Person</button>
     <button class="topbar-btn" id="btn-filter-people">Filter / Legend</button>
     <button class="topbar-btn" id="btn-toggle-collapse">Hide Empty Hours</button>
@@ -1055,6 +1058,15 @@ body {
 
 <script>
 /* ============================================================
+   FIREBASE CONFIG
+   Set databaseURL to enable shared real-time sync.
+   Leave empty to fall back to localStorage (local-only).
+   ============================================================ */
+const FIREBASE_CONFIG = {
+  databaseURL: '' // e.g. 'https://my-project-default-rtdb.firebaseio.com'
+};
+
+/* ============================================================
    SECTION 1: CONSTANTS & CONFIG
    ============================================================ */
 const ROW_HEIGHT    = 60;   // px per 30-min slot
@@ -1136,6 +1148,19 @@ const STATE = {
    ============================================================ */
 const STORAGE = {
   KEY: 'pwonsite_data',
+  _ref: null, // Firebase DatabaseReference, set by initFirebase()
+
+  initFirebase() {
+    if (!FIREBASE_CONFIG.databaseURL) return false;
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      this._ref = firebase.database().ref('pwonsite/data');
+      return true;
+    } catch(e) {
+      console.warn('Firebase init failed, using localStorage:', e);
+      return false;
+    }
+  },
 
   load() {
     try {
@@ -1146,9 +1171,12 @@ const STORAGE = {
   },
 
   save() {
-    try {
-      localStorage.setItem(this.KEY, JSON.stringify(STATE.data));
-    } catch(e) {}
+    // Always cache locally for offline fallback
+    try { localStorage.setItem(this.KEY, JSON.stringify(STATE.data)); } catch(e) {}
+    // Write to Firebase if connected (broadcasts to all open clients)
+    if (this._ref) {
+      this._ref.set(STATE.data).catch(e => console.warn('Firebase write failed:', e));
+    }
   },
 
   buildDefault() {
@@ -2654,29 +2682,59 @@ const WEATHER = {
 /* ============================================================
    SECTION 16: INIT
    ============================================================ */
-function init() {
-  // 1. Load or build data
-  const _saved = STORAGE.load();
-  STATE.data = (_saved && _saved.version >= 3) ? _saved : STORAGE.buildDefault();
 
-  // Ensure new fields exist on loaded data
-  if (!STATE.data.meals) STATE.data.meals = [];
-  if (!STATE.data.settings.weather) STATE.data.settings.weather = {};
-
-  // Ensure all people have new fields
-  STATE.data.people.forEach(p => {
-    if (!p.teamIds) p.teamIds = p.teamId ? [p.teamId] : []; delete p.teamId;
-    if (p.role    === undefined) p.role    = '';
-    if (p.phone   === undefined) p.phone   = '';
-    if (p.email   === undefined) p.email   = '';
-    if (p.dietary === undefined) p.dietary = '';
-    if (p.notes   === undefined) p.notes   = '';
+// Migrate + apply a data snapshot to STATE, then re-render.
+// isFirstLoad = true skips re-render if a drag is in progress and triggers weather fetch.
+function _applyData(data, isFirstLoad) {
+  if (!data || !data.version) data = STORAGE.buildDefault();
+  // Migrate older snapshots forward
+  if (!data.meals) data.meals = [];
+  if (!data.settings.weather) data.settings.weather = {};
+  data.people.forEach(p => {
+    if (!p.teamIds) { p.teamIds = p.teamId ? [p.teamId] : []; delete p.teamId; }
+    if (p.role     === undefined) p.role     = '';
+    if (p.phone    === undefined) p.phone    = '';
+    if (p.email    === undefined) p.email    = '';
+    if (p.dietary  === undefined) p.dietary  = '';
+    if (p.notes    === undefined) p.notes    = '';
   });
 
-  // 2. Set active day
-  const savedDayId = STATE.data.settings && STATE.data.settings.visibleDayId;
-  STATE.activeDay  = STATE.data.days.find(d => d.id === savedDayId) || STATE.data.days[0];
-  STATE.collapseMode = !!(STATE.data.settings && STATE.data.settings.hideUnscheduledHours);
+  STATE.data = data;
+  const savedDayId = data.settings && data.settings.visibleDayId;
+  // Preserve current active day across remote updates if valid
+  if (!STATE.activeDay || !data.days.find(d => d.id === STATE.activeDay.id)) {
+    STATE.activeDay = data.days.find(d => d.id === savedDayId) || data.days[0];
+  }
+  STATE.collapseMode = !!(data.settings && data.settings.hideUnscheduledHours);
+  document.getElementById('btn-toggle-collapse').classList.toggle('active', STATE.collapseMode);
+
+  // Don't re-render mid-drag (would destroy the ghost element)
+  if (!STATE.dragState) RENDER.all();
+
+  if (isFirstLoad) WEATHER.fetch();
+}
+
+function _setSyncStatus(state) {
+  const el = document.getElementById('sync-status');
+  if (state === 'off')  { el.style.display = 'none'; return; }
+  el.style.display = 'inline-flex';
+  const dot = state === 'live' ? '🟢' : state === 'saving' ? '🟡' : '🔴';
+  const lbl = state === 'live' ? 'Live' : state === 'saving' ? 'Saving…' : 'Offline';
+  el.textContent = dot + ' ' + lbl;
+}
+
+function init() {
+  // 1. Build type select options (once)
+  const select = document.getElementById('input-type');
+  Object.entries(ACTIVITY_TYPES).forEach(([key, val]) => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = key + ' \u2014 ' + val.label;
+    select.appendChild(opt);
+  });
+
+  // 2. Set active day (temporary default; _applyData will override)
+  STATE.activeDay = STATE.data.days ? STATE.data.days[0] : null;
 
   // 3. Build type select options (once)
   const select = document.getElementById('input-type');
@@ -2687,7 +2745,7 @@ function init() {
     select.appendChild(opt);
   });
 
-  // 4. Build team assign options
+  // 3. Build team assign options
   const teamSelect = document.getElementById('input-team-assign');
   Object.values(TEAMS).forEach(team => {
     const opt = document.createElement('option');
@@ -2696,7 +2754,7 @@ function init() {
     teamSelect.appendChild(opt);
   });
 
-  // 5. Build person info role options
+  // 4. Build person info role options
   const roleSelect = document.getElementById('person-info-role');
   SHOW_ROLES.forEach(role => {
     const opt = document.createElement('option');
@@ -2705,12 +2763,37 @@ function init() {
     roleSelect.appendChild(opt);
   });
 
-  // 6. Render everything
-  RENDER.all();
-
-  // 7. Update collapse button state
-  if (STATE.collapseMode) {
-    document.getElementById('btn-toggle-collapse').classList.add('active');
+  // 5. Load data — Firebase (shared, real-time) or localStorage (local-only)
+  const useFirebase = STORAGE.initFirebase();
+  if (useFirebase) {
+    _setSyncStatus('saving'); // "connecting" while waiting for first snapshot
+    // Subscribe — fires immediately with current data, then on every remote change
+    STORAGE._ref.on('value', snapshot => {
+      const remote = snapshot.val();
+      if (!remote) {
+        // Database is empty — seed it with default data
+        const def = STORAGE.buildDefault();
+        STORAGE._ref.set(def);
+        _applyData(def, true);
+      } else {
+        _applyData(remote, !STATE.data.activities);
+      }
+      _setSyncStatus('live');
+    }, err => {
+      console.warn('Firebase read error:', err);
+      _setSyncStatus('offline');
+      // Fall back to localStorage
+      const saved = STORAGE.load();
+      _applyData((saved && saved.version >= 3) ? saved : STORAGE.buildDefault(), true);
+    });
+    // Monitor connection state
+    firebase.database().ref('.info/connected').on('value', snap => {
+      if (STATE.data.activities) _setSyncStatus(snap.val() ? 'live' : 'offline');
+    });
+  } else {
+    // No Firebase configured — use localStorage
+    const saved = STORAGE.load();
+    _applyData((saved && saved.version >= 3) ? saved : STORAGE.buildDefault(), true);
   }
 
   // ---- Event: Day tabs ----
@@ -2785,13 +2868,18 @@ function init() {
   document.getElementById('btn-reset-data').addEventListener('click', () => {
     if (confirm('Reset all data to the Excel import? This will erase any changes you\'ve made.')) {
       localStorage.removeItem(STORAGE.KEY);
-      STATE.data = STORAGE.buildDefault();
-      const savedDayId = STATE.data.settings.visibleDayId;
-      STATE.activeDay  = STATE.data.days.find(d => d.id === savedDayId) || STATE.data.days[0];
+      const def = STORAGE.buildDefault();
+      STATE.data = def;
+      STATE.activeDay = def.days.find(d => d.id === def.settings.visibleDayId) || def.days[0];
       STATE.collapseMode = false;
       document.getElementById('btn-toggle-collapse').classList.remove('active');
-      STORAGE.save();
-      RENDER.all();
+      // Write default to Firebase so all clients reset
+      if (STORAGE._ref) {
+        STORAGE._ref.set(def);
+      } else {
+        STORAGE.save();
+        RENDER.all();
+      }
     }
   });
 
