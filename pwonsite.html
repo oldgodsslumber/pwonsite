@@ -2754,17 +2754,20 @@ function init() {
   // 5. Load data — Firebase (shared, real-time) or localStorage (local-only)
   const useFirebase = STORAGE.initFirebase();
   if (useFirebase) {
+    let _firstSnapshot = true;
     _setSyncStatus('saving'); // "connecting" while waiting for first snapshot
     // Subscribe — fires immediately with current data, then on every remote change
     STORAGE._ref.on('value', snapshot => {
       const remote = snapshot.val();
+      const isFirst = _firstSnapshot;
+      _firstSnapshot = false;
       if (!remote) {
         // Database is empty — seed it with default data
         const def = STORAGE.buildDefault();
         STORAGE._ref.set(def);
         _applyData(def, true);
       } else {
-        _applyData(remote, !STATE.data.activities);
+        _applyData(remote, isFirst);
       }
       _setSyncStatus('live');
     }, err => {
