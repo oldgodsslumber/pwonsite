@@ -2733,19 +2733,7 @@ function init() {
     select.appendChild(opt);
   });
 
-  // 2. Set active day (temporary default; _applyData will override)
-  STATE.activeDay = STATE.data.days ? STATE.data.days[0] : null;
-
-  // 3. Build type select options (once)
-  const select = document.getElementById('input-type');
-  Object.entries(ACTIVITY_TYPES).forEach(([key, val]) => {
-    const opt = document.createElement('option');
-    opt.value = key;
-    opt.textContent = key + ' \u2014 ' + val.label;
-    select.appendChild(opt);
-  });
-
-  // 3. Build team assign options
+  // 2. Build team assign options
   const teamSelect = document.getElementById('input-team-assign');
   Object.values(TEAMS).forEach(team => {
     const opt = document.createElement('option');
