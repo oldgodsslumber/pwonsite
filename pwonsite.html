@@ -2348,32 +2348,57 @@ const ROOMS = {
         empty.textContent = 'No activities';
         body.appendChild(empty);
       } else {
+        // Group activities that share start/end/label — one card lists all attendees
+        const groups = new Map();
         roomActs.forEach(act => {
-          const person = STATE.data.people.find(p => p.id === act.personId);
-          const personTeam = person && person.teamId && TEAMS[person.teamId] ? TEAMS[person.teamId] : null;
-
-          const block = document.createElement('div');
-          block.className = 'room-act-block';
-          block.style.background = type.color + '22';
-          block.style.borderLeftColor = personTeam ? personTeam.color : type.color;
-
-          const personName = document.createElement('div');
-          personName.className = 'room-act-person';
-          personName.textContent = person ? person.name : 'Unknown';
-
-          const timeDiv = document.createElement('div');
-          timeDiv.className = 'room-act-time';
-          timeDiv.textContent = formatTimeRange(act.startMinute, act.endMinute);
-
-          const labelDiv = document.createElement('div');
-          labelDiv.className = 'room-act-label';
-          labelDiv.textContent = act.label || type.label;
-
-          block.appendChild(personName);
-          block.appendChild(timeDiv);
-          block.appendChild(labelDiv);
-          body.appendChild(block);
+          const labelText = act.label || type.label;
+          const key = act.startMinute + '|' + act.endMinute + '|' + labelText;
+          if (!groups.has(key)) {
+            groups.set(key, {
+              startMinute: act.startMinute,
+              endMinute:   act.endMinute,
+              label:       labelText,
+              acts:        [],
+            });
+          }
+          groups.get(key).acts.push(act);
         });
+
+        Array.from(groups.values())
+          .sort((a, b) => a.startMinute - b.startMinute)
+          .forEach(group => {
+            // Resolve attendees; border color comes from the first attendee's first team
+            const people = group.acts
+              .map(a => STATE.data.people.find(p => p.id === a.personId))
+              .filter(Boolean)
+              .sort((a, b) => a.order - b.order);
+            const firstTeamId = people[0] && (people[0].teamIds || [])[0];
+            const personTeam = firstTeamId && TEAMS[firstTeamId] ? TEAMS[firstTeamId] : null;
+
+            const block = document.createElement('div');
+            block.className = 'room-act-block';
+            block.style.background = type.color + '22';
+            block.style.borderLeftColor = personTeam ? personTeam.color : type.color;
+
+            const namesDiv = document.createElement('div');
+            namesDiv.className = 'room-act-person';
+            namesDiv.textContent = people.length
+              ? people.map(p => p.name).join(', ')
+              : 'Unknown';
+
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'room-act-time';
+            timeDiv.textContent = formatTimeRange(group.startMinute, group.endMinute);
+
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'room-act-label';
+            labelDiv.textContent = group.label;
+
+            block.appendChild(namesDiv);
+            block.appendChild(timeDiv);
+            block.appendChild(labelDiv);
+            body.appendChild(block);
+          });
       }
 
       col.appendChild(body);
