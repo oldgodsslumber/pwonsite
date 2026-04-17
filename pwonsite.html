@@ -1010,7 +1010,17 @@ body {
 
   <!-- Person info modal -->
   <div class="modal-box" id="modal-person-info" style="min-width:400px;max-width:520px" hidden>
-    <div class="modal-title" id="person-info-name">Person Name</div>
+    <div class="modal-field">
+      <label>Name</label>
+      <input id="person-info-name" type="text" placeholder="Name...">
+    </div>
+    <div class="modal-field">
+      <label>Column Order</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button type="button" class="btn-secondary" id="btn-person-info-left" title="Move one column left">&#8592; Move Left</button>
+        <button type="button" class="btn-secondary" id="btn-person-info-right" title="Move one column right">Move Right &#8594;</button>
+      </div>
+    </div>
     <div id="person-info-team-badge" class="person-info-team-badge" style="display:inline-block;margin-bottom:16px"></div>
     <div class="modal-field">
       <label>Role</label>
@@ -1776,8 +1786,45 @@ const INTERACTION = {
     }
 
     if (actEl && !resizeHandle) {
-      // Check for double-click (two mousedowns on same activity within 400ms)
       const actId = actEl.dataset.actId;
+
+      // Alt/Option+click: duplicate the activity and start dragging the copy
+      if (e.altKey) {
+        const orig = CRUD.findById(actId);
+        if (!orig) return;
+        const dup = CRUD.createActivity({
+          dayId:       orig.dayId,
+          personId:    orig.personId,
+          typeKey:     orig.typeKey,
+          label:       orig.label,
+          notes:       orig.notes,
+          startMinute: orig.startMinute,
+          endMinute:   orig.endMinute,
+        });
+        // CRUD.createActivity triggered a re-render; locate the new DOM element
+        const newEl = document.querySelector('.activity[data-act-id="' + dup.id + '"]');
+        if (!newEl) { e.preventDefault(); return; }
+        const rect = newEl.getBoundingClientRect();
+        STATE.dragState = {
+          mode: 'MOVE',
+          actId: dup.id,
+          personId: dup.personId,
+          ghostEl: newEl,
+          startPageY: e.pageY,
+          startPageX: e.pageX,
+          offsetY: e.clientY - rect.top,
+          originalStart: dup.startMinute,
+          originalEnd:   dup.endMinute,
+          currentStart:  dup.startMinute,
+          currentEnd:    dup.endMinute,
+        };
+        newEl.classList.add('dragging');
+        INTERACTION._lastActClick = { actId: null, time: 0 };
+        e.preventDefault();
+        return;
+      }
+
+      // Check for double-click (two mousedowns on same activity within 400ms)
       const now = Date.now();
       const last = INTERACTION._lastActClick;
       if (last.actId === actId && now - last.time < 400) {
@@ -2144,7 +2191,7 @@ const PERSONCARD = {
     if (!person) return;
     this.currentId = personId;
 
-    document.getElementById('person-info-name').textContent = person.name;
+    document.getElementById('person-info-name').value = person.name;
 
     // Render team checkboxes
     const badgeEl = document.getElementById('person-info-team-badge');
@@ -2177,6 +2224,8 @@ const PERSONCARD = {
   save() {
     const person = STATE.data.people.find(p => p.id === this.currentId);
     if (!person) return;
+    const newName = document.getElementById('person-info-name').value.trim();
+    if (newName) person.name = newName;
     person.teamIds = Array.from(
       document.querySelectorAll('#person-info-team-badge input[type=checkbox]:checked')
     ).map(cb => cb.value);
@@ -2186,9 +2235,26 @@ const PERSONCARD = {
     person.dietary = document.getElementById('person-info-dietary').value.trim();
     person.notes   = document.getElementById('person-info-notes').value.trim();
     STORAGE.save();
-    RENDER.personHeaders();
-    FILTER.render();
+    RENDER.all();
     this.close();
+  },
+
+  // Swap order with the nearest visible neighbor in the given direction (-1 left, +1 right)
+  move(direction) {
+    const person = STATE.data.people.find(p => p.id === this.currentId);
+    if (!person) return;
+    const visible = STATE.data.people
+      .filter(p => p.visible)
+      .sort((a, b) => a.order - b.order);
+    const idx = visible.findIndex(p => p.id === person.id);
+    const neighborIdx = idx + direction;
+    if (idx === -1 || neighborIdx < 0 || neighborIdx >= visible.length) return;
+    const neighbor = visible[neighborIdx];
+    const tmp = person.order;
+    person.order = neighbor.order;
+    neighbor.order = tmp;
+    STORAGE.save();
+    RENDER.all();
   },
 
   deletePerson() {
@@ -2896,6 +2962,8 @@ function init() {
   document.getElementById('btn-person-info-save').addEventListener('click', () => PERSONCARD.save());
   document.getElementById('btn-person-info-close').addEventListener('click', () => PERSONCARD.close());
   document.getElementById('btn-person-info-delete').addEventListener('click', () => PERSONCARD.deletePerson());
+  document.getElementById('btn-person-info-left').addEventListener('click',  () => PERSONCARD.move(-1));
+  document.getElementById('btn-person-info-right').addEventListener('click', () => PERSONCARD.move(+1));
 
   // ---- Event: Person header click -> person card ----
   document.getElementById('person-headers').addEventListener('click', e => {
