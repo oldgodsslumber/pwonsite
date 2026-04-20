@@ -916,6 +916,7 @@ body {
     <button class="topbar-btn" id="btn-add-person">+ Person</button>
     <button class="topbar-btn" id="btn-filter-people">Filter / Legend</button>
     <button class="topbar-btn" id="btn-toggle-collapse">Hide Empty Hours</button>
+    <button class="topbar-btn" id="btn-duplicate-day" title="Copy all activities from another day into the current day">&#10697; Duplicate Day</button>
     <button class="topbar-btn" id="btn-call-sheet">&#128203; Call Sheet</button>
     <button class="topbar-btn" id="btn-reset-data" style="opacity:0.6" title="Wipe all data and reload from Excel import">&#8635; Reset</button>
   </div>
@@ -1007,6 +1008,29 @@ body {
     <div class="modal-actions">
       <button class="btn-secondary" id="btn-person-cancel">Cancel</button>
       <button class="btn-primary" id="btn-person-save">Add</button>
+    </div>
+  </div>
+
+  <!-- Duplicate day modal -->
+  <div class="modal-box" id="modal-duplicate-day" hidden>
+    <div class="modal-title">Duplicate Day</div>
+    <div class="modal-field">
+      <label>Copy activities FROM</label>
+      <select id="dup-day-source"></select>
+    </div>
+    <div class="modal-field">
+      <label>Into day</label>
+      <select id="dup-day-target"></select>
+    </div>
+    <div class="modal-field">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:500">
+        <input type="checkbox" id="dup-day-replace" checked>
+        Replace existing activities on target day
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-dup-day-cancel">Cancel</button>
+      <button class="btn-primary" id="btn-dup-day-confirm">Duplicate</button>
     </div>
   </div>
 
@@ -2947,6 +2971,62 @@ function init() {
   document.getElementById('btn-call-sheet').addEventListener('click', () => CALLSHEET.open());
   document.getElementById('btn-callsheet-close').addEventListener('click', () => CALLSHEET.close());
   document.getElementById('btn-export-zip').addEventListener('click', () => ZIP.export(STATE.activeDay.id));
+
+  // ---- Event: Duplicate day ----
+  document.getElementById('btn-duplicate-day').addEventListener('click', () => {
+    const src = document.getElementById('dup-day-source');
+    const tgt = document.getElementById('dup-day-target');
+    src.innerHTML = '';
+    tgt.innerHTML = '';
+    STATE.data.days.forEach(day => {
+      const optS = document.createElement('option');
+      optS.value = day.id; optS.textContent = day.label + ' (' + day.date + ')';
+      src.appendChild(optS);
+      const optT = optS.cloneNode(true);
+      tgt.appendChild(optT);
+    });
+    // Default: source = first non-active day, target = active day
+    const activeId = STATE.activeDay.id;
+    tgt.value = activeId;
+    const otherDay = STATE.data.days.find(d => d.id !== activeId);
+    src.value = otherDay ? otherDay.id : activeId;
+    document.getElementById('dup-day-replace').checked = true;
+    MODAL.show('modal-duplicate-day');
+  });
+
+  document.getElementById('btn-dup-day-cancel').addEventListener('click', () => MODAL.hide());
+
+  document.getElementById('btn-dup-day-confirm').addEventListener('click', () => {
+    const srcId   = document.getElementById('dup-day-source').value;
+    const tgtId   = document.getElementById('dup-day-target').value;
+    const replace = document.getElementById('dup-day-replace').checked;
+    if (srcId === tgtId) { alert('Source and target day must be different.'); return; }
+    const sourceActs = STATE.data.activities.filter(a => a.dayId === srcId);
+    if (!sourceActs.length) { alert('Source day has no activities to copy.'); return; }
+
+    if (replace) {
+      STATE.data.activities = STATE.data.activities.filter(a => a.dayId !== tgtId);
+    }
+    sourceActs.forEach(a => {
+      STATE.data.activities.push({
+        id: uid(),
+        dayId:       tgtId,
+        personId:    a.personId,
+        typeKey:     a.typeKey,
+        label:       a.label || '',
+        notes:       a.notes || '',
+        startMinute: a.startMinute,
+        endMinute:   a.endMinute,
+      });
+    });
+    STORAGE.save();
+    // Switch to the target day so the user sees the result
+    STATE.activeDay = STATE.data.days.find(d => d.id === tgtId) || STATE.activeDay;
+    if (STATE.data.settings) STATE.data.settings.visibleDayId = STATE.activeDay.id;
+    STORAGE.save();
+    RENDER.all();
+    MODAL.hide();
+  });
 
   // ---- Event: Reset ----
   document.getElementById('btn-reset-data').addEventListener('click', () => {
