@@ -415,6 +415,13 @@ body {
   box-shadow: 0 3px 8px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.1);
   z-index: 2;
 }
+.activity.selected {
+  box-shadow: 0 0 0 2px #e94560, 0 3px 10px rgba(233,69,96,0.35);
+  z-index: 3;
+}
+.activity.selected:hover {
+  box-shadow: 0 0 0 2px #e94560, 0 4px 12px rgba(233,69,96,0.5);
+}
 .activity.dragging {
   opacity: 0.8;
   box-shadow: 0 6px 18px rgba(0,0,0,0.3);
@@ -643,6 +650,15 @@ body {
 .modal-field select:focus,
 .modal-field textarea:focus { border-color: #e94560; background: #fff; }
 .modal-field textarea { resize: vertical; min-height: 60px; }
+/* Checkboxes shouldn't inherit the full-width text-input styling above */
+.modal-field input[type=checkbox] {
+  width: auto;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  vertical-align: middle;
+}
 .modal-time-preview {
   font-size: 12px;
   color: #888;
@@ -1214,6 +1230,7 @@ const STATE = {
   pendingNewAct: null,
   editingActId: null,
   editingMealId: null,
+  selectedActIds: new Set(),
   collapseMode: false,
   slotHeights: [],       // populated when collapseMode is on
   filterPanelOpen: false,
@@ -1700,7 +1717,7 @@ const RENDER = {
   activityBlock(act, lay) {
     const type = ACTIVITY_TYPES[act.typeKey] || ACTIVITY_TYPES.MEETING;
     const el = document.createElement('div');
-    el.className = 'activity';
+    el.className = 'activity' + (STATE.selectedActIds.has(act.id) ? ' selected' : '');
     el.dataset.actId = act.id;
     el.style.backgroundColor = type.color;
     el.style.color = type.textColor;
@@ -1941,6 +1958,25 @@ const INTERACTION = {
     if (actEl && !resizeHandle) {
       const actId = actEl.dataset.actId;
 
+      // Shift+click: toggle this activity in the selection without starting a drag
+      if (e.shiftKey) {
+        if (STATE.selectedActIds.has(actId)) STATE.selectedActIds.delete(actId);
+        else STATE.selectedActIds.add(actId);
+        RENDER.grid();
+        e.preventDefault();
+        return;
+      }
+
+      // Plain click on an activity: if not already selected, replace selection with just this one
+      if (!STATE.selectedActIds.has(actId)) {
+        STATE.selectedActIds.clear();
+        STATE.selectedActIds.add(actId);
+        actEl.classList.add('selected');
+        document.querySelectorAll('.activity.selected').forEach(el => {
+          if (el.dataset.actId !== actId) el.classList.remove('selected');
+        });
+      }
+
       // Alt/Option+click: duplicate the activity and start dragging the copy
       if (e.altKey) {
         const orig = CRUD.findById(actId);
@@ -2011,6 +2047,11 @@ const INTERACTION = {
     }
 
     // MODE: DRAW — click on empty column space
+    if (STATE.selectedActIds.size) {
+      STATE.selectedActIds.clear();
+      document.querySelectorAll('.activity.selected').forEach(el => el.classList.remove('selected'));
+    }
+
     const body = document.getElementById('scheduler-body');
     const colRect = col.getBoundingClientRect();
     const relY = e.clientY - colRect.top;
@@ -2144,6 +2185,11 @@ const INTERACTION = {
           startMinute: ds.currentStart,
           endMinute:   ds.currentEnd,
         });
+      } else {
+        // Click without a real move: a small mousemove may have re-parented the
+        // element across columns. Re-render so the DOM reflects STATE (including
+        // the .selected class for the activity just clicked).
+        RENDER.grid();
       }
     }
   },
@@ -2153,6 +2199,27 @@ const INTERACTION = {
 // Global drag mouse listeners (attached once)
 document.addEventListener('mousemove', e => INTERACTION.onMouseMove(e));
 document.addEventListener('mouseup',   e => INTERACTION.onMouseUp(e));
+
+// Delete key removes all selected activities. Skip when typing in a field
+// or while a modal is open so we don't blow away edits in progress.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+  if (!STATE.selectedActIds.size) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (document.activeElement && document.activeElement.isContentEditable) return;
+  if (!document.getElementById('modal-overlay').hidden) return;
+  if (!document.getElementById('callsheet-overlay').hidden) return;
+
+  const ids = Array.from(STATE.selectedActIds);
+  const msg = ids.length === 1 ? 'Delete this activity?' : 'Delete ' + ids.length + ' activities?';
+  if (!confirm(msg)) return;
+  STATE.data.activities = STATE.data.activities.filter(a => !STATE.selectedActIds.has(a.id));
+  STATE.selectedActIds.clear();
+  STORAGE.save();
+  RENDER.grid();
+  e.preventDefault();
+});
 
 /* ============================================================
    SECTION 8: CRUD
@@ -2182,6 +2249,7 @@ const CRUD = {
 
   deleteActivity(id) {
     STATE.data.activities = STATE.data.activities.filter(a => a.id !== id);
+    STATE.selectedActIds.delete(id);
     STORAGE.save();
     RENDER.grid();
   },
