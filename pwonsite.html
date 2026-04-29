@@ -382,6 +382,16 @@ body {
   z-index: 0;
 }
 
+/* Meal background bands — span every person column at low opacity */
+.meal-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  z-index: 0;
+}
+
 /* Activity blocks */
 .activity {
   position: absolute;
@@ -511,6 +521,12 @@ body {
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow 0.1s, transform 0.1s;
+}
+.meal-band:hover {
+  box-shadow: 0 2px 5px rgba(0,0,0,0.18);
+  transform: translateY(-1px);
 }
 .rooms-grid {
   display: flex;
@@ -985,16 +1001,41 @@ body {
       <textarea id="input-notes" placeholder="Additional details..."></textarea>
     </div>
     <div class="modal-field" id="team-assign-section" style="border-top:1px solid #eee;padding-top:12px;margin-top:4px">
-      <label>Create for Whole Team <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa">(optional &mdash; creates copies for each team member)</span></label>
-      <select id="input-team-assign">
-        <option value="">&#8212; individual only &#8212;</option>
-      </select>
+      <label>Create for Whole Team <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa">(optional &mdash; creates copies for each team member; multiple teams allowed)</span></label>
+      <div id="input-team-assign"></div>
     </div>
     <div class="modal-time-preview" id="modal-time-preview"></div>
     <div class="modal-actions">
       <button class="btn-danger" id="btn-modal-delete">Delete</button>
       <button class="btn-secondary" id="btn-modal-cancel">Cancel</button>
       <button class="btn-primary" id="btn-modal-save">Save</button>
+    </div>
+  </div>
+
+  <!-- Meal edit modal -->
+  <div class="modal-box" id="modal-meal" hidden>
+    <div class="modal-title">Edit Meal</div>
+    <div class="modal-field">
+      <label>Label</label>
+      <input id="input-meal-label" type="text" placeholder="Breakfast, Lunch, Dinner...">
+    </div>
+    <div class="modal-field" style="display:flex;gap:10px">
+      <div style="flex:1">
+        <label>Start</label>
+        <input id="input-meal-start" type="time">
+      </div>
+      <div style="flex:1">
+        <label>End</label>
+        <input id="input-meal-end" type="time">
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Location</label>
+      <input id="input-meal-location" type="text" placeholder="Meal Room">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-meal-cancel">Cancel</button>
+      <button class="btn-primary" id="btn-meal-save">Save</button>
     </div>
   </div>
 
@@ -1172,6 +1213,7 @@ const STATE = {
   dragState: null,
   pendingNewAct: null,
   editingActId: null,
+  editingMealId: null,
   collapseMode: false,
   slotHeights: [],       // populated when collapseMode is on
   filterPanelOpen: false,
@@ -1414,6 +1456,19 @@ function formatTimeRange(s, e) {
   return formatMinutes(s) + ' \u2013 ' + formatMinutes(e);
 }
 
+function minutesToTimeStr(totalMin) {
+  const h = Math.floor(totalMin / 60) % 24;
+  const m = totalMin % 60;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+function timeStrToMinutes(s) {
+  if (!s) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
+  if (!m) return null;
+  return Math.max(0, Math.min(24 * 60, parseInt(m[1], 10) * 60 + parseInt(m[2], 10)));
+}
+
 function formatDate(dateStr) {
   // "2026-06-06" -> "Saturday, June 6, 2026"
   const d = new Date(dateStr + 'T12:00:00');
@@ -1573,17 +1628,23 @@ const RENDER = {
     const h = totalGridHeight();
     const visible = this._visiblePeople();
 
+    const meals = (STATE.data.meals || []).filter(m => m.dayId === STATE.activeDay.id);
+
     visible.forEach(person => {
       const col = document.createElement('div');
       col.className = 'person-column';
       col.dataset.personId = person.id;
       col.style.height = h + 'px';
 
+      // Meal background bands — drawn behind activities for every person
+      meals.forEach(meal => col.appendChild(this.mealBgBlock(meal)));
+
       // Activity blocks
       const acts = STATE.data.activities.filter(
         a => a.dayId === STATE.activeDay.id && a.personId === person.id
       );
-      acts.forEach(act => col.appendChild(this.activityBlock(act)));
+      const layout = this._computeActivityLayout(acts);
+      acts.forEach(act => col.appendChild(this.activityBlock(act, layout.get(act.id))));
 
       gridArea.appendChild(col);
     });
@@ -1592,7 +1653,51 @@ const RENDER = {
     INTERACTION.attachGridListeners();
   },
 
-  activityBlock(act) {
+  _computeActivityLayout(acts) {
+    // Returns Map<actId, {col, cols}>. Overlapping activities are packed into
+    // side-by-side columns so all are visible simultaneously.
+    const layout = new Map();
+    if (!acts.length) return layout;
+    const sorted = acts.slice().sort((a, b) =>
+      a.startMinute - b.startMinute || a.endMinute - b.endMinute
+    );
+
+    let cluster = [];
+    let clusterEnd = -Infinity;
+    const flush = () => {
+      if (!cluster.length) return;
+      const colEnds = []; // colEnds[i] = endMinute of last activity placed in column i
+      cluster.forEach(a => {
+        let placed = false;
+        for (let i = 0; i < colEnds.length; i++) {
+          if (colEnds[i] <= a.startMinute) {
+            colEnds[i] = a.endMinute;
+            layout.set(a.id, { col: i });
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          colEnds.push(a.endMinute);
+          layout.set(a.id, { col: colEnds.length - 1 });
+        }
+      });
+      const cols = colEnds.length;
+      cluster.forEach(a => { layout.get(a.id).cols = cols; });
+      cluster = [];
+      clusterEnd = -Infinity;
+    };
+
+    sorted.forEach(a => {
+      if (a.startMinute >= clusterEnd) flush();
+      cluster.push(a);
+      if (a.endMinute > clusterEnd) clusterEnd = a.endMinute;
+    });
+    flush();
+    return layout;
+  },
+
+  activityBlock(act, lay) {
     const type = ACTIVITY_TYPES[act.typeKey] || ACTIVITY_TYPES.MEETING;
     const el = document.createElement('div');
     el.className = 'activity';
@@ -1604,6 +1709,16 @@ const RENDER = {
     const height = Math.max(topFromMinutes(act.endMinute) - top, 14);
     el.style.top = top + 'px';
     el.style.height = height + 'px';
+
+    if (lay && lay.cols > 1) {
+      // Side-by-side packing within the column. CSS sets left:3px right:3px;
+      // override to slice that 3px-padded inner area into N equal slots.
+      const gap = 2;
+      const slot = '((100% - 6px - ' + ((lay.cols - 1) * gap) + 'px) / ' + lay.cols + ')';
+      el.style.left  = 'calc(3px + ' + lay.col + ' * (' + slot + ' + ' + gap + 'px))';
+      el.style.width = 'calc(' + slot + ')';
+      el.style.right = 'auto';
+    }
 
     const labelText = act.label || type.label;
     const timeText  = formatTimeRange(act.startMinute, act.endMinute);
@@ -1618,6 +1733,18 @@ const RENDER = {
       (showNotes ? '<div class="activity-notes">' + escapeHtml(act.notes)   + '</div>' : '') +
       '<div class="resize-handle bottom" data-resize="bottom"></div>';
 
+    return el;
+  },
+
+  mealBgBlock(meal) {
+    const type = ACTIVITY_TYPES[meal.type] || {};
+    const el = document.createElement('div');
+    el.className = 'meal-bg';
+    el.style.background = type.color || '#888';
+    const top = topFromMinutes(meal.startMinute);
+    const height = Math.max(topFromMinutes(meal.endMinute) - top, 4);
+    el.style.top = top + 'px';
+    el.style.height = height + 'px';
     return el;
   },
 
@@ -2090,7 +2217,7 @@ const MODAL = {
     document.getElementById('input-type').value  = 'MEETING';
     document.getElementById('input-label').value = '';
     document.getElementById('input-notes').value = '';
-    document.getElementById('input-team-assign').value = '';
+    document.querySelectorAll('#input-team-assign .team-assign-cb').forEach(cb => cb.checked = false);
     document.getElementById('modal-time-preview').textContent =
       formatTimeRange(pending.startMinute, pending.endMinute);
     document.getElementById('btn-modal-delete').style.display = 'none';
@@ -2108,7 +2235,7 @@ const MODAL = {
     document.getElementById('input-type').value  = act.typeKey;
     document.getElementById('input-label').value = act.label;
     document.getElementById('input-notes').value = act.notes;
-    document.getElementById('input-team-assign').value = '';
+    document.querySelectorAll('#input-team-assign .team-assign-cb').forEach(cb => cb.checked = false);
     document.getElementById('modal-time-preview').textContent =
       formatTimeRange(act.startMinute, act.endMinute);
     document.getElementById('btn-modal-delete').style.display = '';
@@ -2127,26 +2254,30 @@ const MODAL = {
     document.getElementById('modal-overlay').hidden = true;
     STATE.editingActId  = null;
     STATE.pendingNewAct = null;
+    STATE.editingMealId = null;
   },
 
   handleSave() {
     const typeKey    = document.getElementById('input-type').value;
     const label      = document.getElementById('input-label').value.trim();
     const notes      = document.getElementById('input-notes').value.trim();
-    const teamAssign = document.getElementById('input-team-assign').value;
+    const selectedTeams = Array.from(
+      document.querySelectorAll('#input-team-assign .team-assign-cb:checked')
+    ).map(cb => cb.value).filter(id => TEAMS[id]);
 
     if (STATE.pendingNewAct) {
-      if (teamAssign && TEAMS[teamAssign]) {
-        // Create activity for each visible person in the selected team
-        const teamPeople = STATE.data.people.filter(p => p.visible && (p.teamIds||[]).includes(teamAssign));
-        teamPeople.forEach(p => {
-          CRUD.createActivity({ ...STATE.pendingNewAct, personId: p.id, typeKey, label, notes });
+      if (selectedTeams.length) {
+        // Union of visible members across all selected teams; ensure original person is included.
+        const personIds = new Set();
+        STATE.data.people.forEach(p => {
+          if (p.visible && (p.teamIds||[]).some(tid => selectedTeams.includes(tid))) {
+            personIds.add(p.id);
+          }
         });
-        // Also create for the original person if not already in the team
-        const originalInTeam = teamPeople.some(p => p.id === STATE.pendingNewAct.personId);
-        if (!originalInTeam) {
-          CRUD.createActivity({ ...STATE.pendingNewAct, typeKey, label, notes });
-        }
+        personIds.add(STATE.pendingNewAct.personId);
+        personIds.forEach(pid => {
+          CRUD.createActivity({ ...STATE.pendingNewAct, personId: pid, typeKey, label, notes });
+        });
       } else {
         CRUD.createActivity({ ...STATE.pendingNewAct, typeKey, label, notes });
       }
@@ -2161,6 +2292,42 @@ const MODAL = {
       CRUD.deleteActivity(STATE.editingActId);
       this.hide();
     }
+  },
+
+  openMeal(mealId) {
+    const meal = (STATE.data.meals || []).find(m => m.id === mealId);
+    if (!meal) return;
+    STATE.editingMealId = mealId;
+    document.getElementById('input-meal-label').value    = meal.label || '';
+    document.getElementById('input-meal-start').value    = minutesToTimeStr(meal.startMinute);
+    document.getElementById('input-meal-end').value      = minutesToTimeStr(meal.endMinute);
+    document.getElementById('input-meal-location').value = meal.location || '';
+    this.show('modal-meal');
+  },
+
+  handleMealSave() {
+    if (!STATE.editingMealId) return;
+    const meal = (STATE.data.meals || []).find(m => m.id === STATE.editingMealId);
+    if (!meal) { this.hide(); return; }
+    const sm = timeStrToMinutes(document.getElementById('input-meal-start').value);
+    const em = timeStrToMinutes(document.getElementById('input-meal-end').value);
+    if (sm == null || em == null || em <= sm) {
+      alert('Please enter a valid start and end time (end must be after start).');
+      return;
+    }
+    meal.label        = document.getElementById('input-meal-label').value.trim() || meal.label;
+    meal.startMinute  = sm;
+    meal.endMinute    = em;
+    meal.location     = document.getElementById('input-meal-location').value.trim();
+    STATE.editingMealId = null;
+    STORAGE.save();
+    this._refreshAfterMeal();
+    this.hide();
+  },
+
+  _refreshAfterMeal() {
+    if (STATE.activeView === 'rooms') ROOMS.render();
+    RENDER.grid();
   },
 };
 
@@ -2328,12 +2495,14 @@ const ROOMS = {
         const mtype = ACTIVITY_TYPES[meal.type] || {};
         const band = document.createElement('div');
         band.className = 'meal-band';
+        band.title = 'Click to edit time';
         band.style.background = mtype.color || '#eee';
         band.style.color = mtype.textColor || '#333';
         band.innerHTML =
           '<strong>' + escapeHtml(meal.label) + '</strong>' +
           '<span>' + escapeHtml(formatTimeRange(meal.startMinute, meal.endMinute)) + '</span>' +
           '<span style="opacity:0.8">' + escapeHtml(meal.location) + '</span>';
+        band.addEventListener('click', () => MODAL.openMeal(meal.id));
         mealsBar.appendChild(band);
       });
       roomsArea.appendChild(mealsBar);
@@ -2850,13 +3019,21 @@ function init() {
     select.appendChild(opt);
   });
 
-  // 2. Build team assign options
-  const teamSelect = document.getElementById('input-team-assign');
+  // 2. Build team assign checkboxes
+  const teamBox = document.getElementById('input-team-assign');
   Object.values(TEAMS).forEach(team => {
-    const opt = document.createElement('option');
-    opt.value = team.id;
-    opt.textContent = team.name;
-    teamSelect.appendChild(opt);
+    const lbl = document.createElement('label');
+    lbl.style.cssText = 'display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;cursor:pointer;font-size:12px;font-weight:500;';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = team.id;
+    cb.className = 'team-assign-cb';
+    const swatch = document.createElement('span');
+    swatch.style.cssText = 'display:inline-block;width:10px;height:10px;border-radius:2px;background:' + team.color;
+    lbl.appendChild(cb);
+    lbl.appendChild(swatch);
+    lbl.appendChild(document.createTextNode(team.name));
+    teamBox.appendChild(lbl);
   });
 
   // 4. Build person info role options
@@ -3053,6 +3230,9 @@ function init() {
   document.getElementById('btn-modal-save').addEventListener('click', () => MODAL.handleSave());
   document.getElementById('btn-modal-delete').addEventListener('click', () => MODAL.handleDelete());
   document.getElementById('btn-modal-cancel').addEventListener('click', () => MODAL.hide());
+
+  document.getElementById('btn-meal-save').addEventListener('click', () => MODAL.handleMealSave());
+  document.getElementById('btn-meal-cancel').addEventListener('click', () => MODAL.hide());
 
   document.getElementById('btn-person-save').addEventListener('click', () => {
     const name = document.getElementById('input-person-name').value.trim();
