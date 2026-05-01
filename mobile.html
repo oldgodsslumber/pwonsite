@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1a2e">
+<title>PWonsite Mobile</title>
+<script type="module" src="./auth.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  color: #e0e0f0;
+  background: #0d0d12;
+  overscroll-behavior-y: contain;
+}
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select { font-family: inherit; font-size: 15px; }
+
+/* ---- App shell ---- */
+#app {
+  min-height: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  max-width: 600px;
+  margin: 0 auto;
+  background: #0d0d12;
+  position: relative;
+}
+
+/* ---- Header ---- */
+.app-header {
+  background: #1a1a2e;
+  color: #e0e0f0;
+  padding: 14px 16px;
+  padding-top: max(14px, env(safe-area-inset-top));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #2c2c3e;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.app-header .back-btn {
+  background: transparent;
+  border: 1px solid #404068;
+  color: #c0c0e0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.app-header .back-btn:active { background: #2d2d4e; }
+.app-header h1 {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  flex: 1;
+  min-width: 0;
+}
+.app-header h1 .accent { color: #e94560; }
+.app-header .user-chip {
+  font-size: 11px;
+  color: #a0a0c0;
+  background: #2d2d4e;
+  border: 1px solid #404068;
+  border-radius: 14px;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Screen ---- */
+.screen {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+.screen.hidden { display: none; }
+
+/* ---- Loading ---- */
+#mobile-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8080a0;
+  font-size: 13px;
+}
+
+/* ---- Person picker ---- */
+.picker-intro {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.picker-intro h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+.picker-intro p { color: #8080a0; font-size: 14px; }
+.picker-team {
+  margin-bottom: 18px;
+}
+.picker-team-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #16161e;
+  border: 1px solid #2c2c3e;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  width: 100%;
+  text-align: left;
+  color: #e0e0f0;
+}
+.picker-row:active { background: #1e1e28; }
+.picker-row .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #2d2d4e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.picker-row .info { flex: 1; min-width: 0; }
+.picker-row .name { font-size: 15px; font-weight: 600; }
+.picker-row .role { font-size: 12px; color: #8080a0; margin-top: 2px; }
+
+/* ---- Dashboard cards ---- */
+.dash-greet {
+  margin-bottom: 16px;
+}
+.dash-greet .hello { font-size: 12px; color: #8080a0; letter-spacing: .08em; text-transform: uppercase; }
+.dash-greet .name { font-size: 24px; font-weight: 700; margin-top: 2px; }
+.dash-greet .when { font-size: 13px; color: #a0a0c0; margin-top: 4px; }
+
+.card {
+  background: #16161e;
+  border: 1px solid #2c2c3e;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.card-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #8080a0;
+  margin-bottom: 8px;
+}
+.card-empty {
+  color: #6a6a8a;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.event-block {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.event-bar {
+  width: 4px;
+  border-radius: 2px;
+  background: #5DADE2;
+  align-self: stretch;
+  min-height: 36px;
+  flex-shrink: 0;
+}
+.event-info { flex: 1; min-width: 0; }
+.event-title { font-size: 16px; font-weight: 600; line-height: 1.3; }
+.event-time { font-size: 13px; color: #c0c0e0; margin-top: 4px; }
+.event-type-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 2px 7px;
+  border-radius: 3px;
+  margin-top: 6px;
+}
+.event-notes { font-size: 12px; color: #a0a0c0; margin-top: 6px; line-height: 1.4; }
+.event-relative {
+  font-size: 11px;
+  color: #e94560;
+  font-weight: 600;
+  margin-top: 4px;
+  letter-spacing: .04em;
+}
+.event-relative.muted { color: #8080a0; }
+
+.dash-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+.big-btn {
+  background: #1a1a2e;
+  border: 1px solid #404068;
+  color: #fff;
+  border-radius: 12px;
+  padding: 22px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: background .15s;
+}
+.big-btn .icon { font-size: 28px; line-height: 1; }
+.big-btn:active { background: #2d2d4e; }
+.big-btn.schedule { border-color: #5DADE2; }
+.big-btn.schedule .icon { color: #5DADE2; }
+.big-btn.feedback { border-color: #e94560; }
+.big-btn.feedback .icon { color: #e94560; }
+
+/* ---- Schedule view ---- */
+.day-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  margin: -16px -16px 12px -16px;
+  padding: 8px 16px;
+  background: #16161e;
+  border-bottom: 1px solid #2c2c3e;
+  scrollbar-width: none;
+}
+.day-tabs::-webkit-scrollbar { display: none; }
+.day-tab {
+  background: transparent;
+  border: 1px solid #404068;
+  color: #a0a0c0;
+  border-radius: 16px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.day-tab.active {
+  background: #e94560;
+  border-color: #e94560;
+  color: #fff;
+}
+.sched-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sched-item {
+  background: #16161e;
+  border: 1px solid #2c2c3e;
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sched-item.is-now {
+  background: #1e1e3a;
+  border-color: #e94560;
+}
+.sched-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.sched-item-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.sched-item-time { font-size: 12px; color: #c0c0e0; white-space: nowrap; flex-shrink: 0; }
+.sched-item-meta { font-size: 11px; color: #8080a0; }
+.sched-section-label {
+  font-size: 11px;
+  color: #8080a0;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin: 14px 0 6px 0;
+}
+.sched-section-label:first-child { margin-top: 0; }
+
+/* ---- Feedback form ---- */
+.fb-context {
+  background: #16161e;
+  border: 1px solid #2c2c3e;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.fb-context-row {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.fb-context-row .lbl {
+  color: #8080a0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  min-width: 64px;
+  padding-top: 2px;
+}
+.fb-context-row .val { color: #e0e0f0; flex: 1; min-width: 0; }
+.fb-context-edit {
+  background: transparent;
+  border: none;
+  color: #5DADE2;
+  font-size: 11px;
+  text-decoration: underline;
+  padding: 0;
+  margin-left: 6px;
+}
+.fb-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #8080a0;
+  margin-bottom: 10px;
+}
+.fb-types {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.fb-type-btn {
+  background: #16161e;
+  border: 2px solid #2c2c3e;
+  color: #c0c0e0;
+  border-radius: 10px;
+  padding: 14px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.fb-type-btn .ico { font-size: 22px; line-height: 1; }
+.fb-type-btn.active { background: #1e1e3a; border-color: var(--type-color, #e94560); color: #fff; }
+.fb-textarea {
+  width: 100%;
+  min-height: 140px;
+  background: #16161e;
+  border: 1px solid #2c2c3e;
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #e0e0f0;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+.fb-textarea:focus { border-color: #5DADE2; }
+.fb-submit-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(180deg, transparent, #0d0d12 30%);
+  padding-top: 14px;
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
+}
+.fb-submit, .fb-cancel {
+  flex: 1;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+.fb-submit { background: #e94560; color: #fff; }
+.fb-submit:disabled { opacity: .4; }
+.fb-cancel { background: transparent; border-color: #404068; color: #c0c0e0; }
+.fb-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%) translateY(20px);
+  background: #4cba6a;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity .25s, transform .25s;
+  z-index: 1000;
+  box-shadow: 0 6px 18px rgba(0,0,0,.5);
+}
+.fb-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---- Activity-pick modal ---- */
+.act-pick-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 200;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+}
+.act-pick-overlay.show { display: flex; }
+.act-pick-sheet {
+  background: #16161e;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+}
+.act-pick-head {
+  padding: 14px 16px;
+  border-bottom: 1px solid #2c2c3e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.act-pick-title { font-size: 14px; font-weight: 700; letter-spacing: .08em; }
+.act-pick-close {
+  background: none;
+  border: none;
+  color: #8080a0;
+  font-size: 22px;
+  padding: 0;
+  line-height: 1;
+}
+.act-pick-list {
+  overflow-y: auto;
+  padding: 12px 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+.act-pick-item {
+  background: #1e1e28;
+  border: 1px solid #2c2c3e;
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  width: 100%;
+  text-align: left;
+  color: #e0e0f0;
+}
+.act-pick-item.selected { border-color: #e94560; background: #2a1f2e; }
+.act-pick-item .t { font-size: 14px; font-weight: 600; }
+.act-pick-item .s { font-size: 11px; color: #8080a0; margin-top: 2px; }
+
+/* Hide the floating admin button injected by auth.js on the mobile shell — admin work happens on desktop */
+#pw-admin-btn { display: none !important; }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="mobile-loading">Loading…</div>
+</div>
+
+<div class="act-pick-overlay" id="act-pick-overlay">
+  <div class="act-pick-sheet">
+    <div class="act-pick-head">
+      <div class="act-pick-title">SELECT EVENT</div>
+      <button class="act-pick-close" id="act-pick-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="act-pick-list" id="act-pick-list"></div>
+  </div>
+</div>
+
+<div class="fb-toast" id="fb-toast">Feedback submitted</div>
+
+<script>
+/* ============================================================
+   PWonsite Mobile
+   - Authenticates via auth.js (window._fbReady)
+   - Reads pwonsite/data for schedule + people
+   - Writes feedback to pwonsite/feedback/{id}
+   ============================================================ */
+
+const ACTIVITY_TYPES = {
+  ER:      { label: 'Edit Room',           color: '#4A90D9', textColor: '#fff' },
+  VR:      { label: 'Video Row',           color: '#7B6FAD', textColor: '#fff' },
+  GGA:     { label: 'Grand Garden Arena',  color: '#C0392B', textColor: '#fff' },
+  BR:      { label: 'Breakout Rooms',      color: '#2980B9', textColor: '#fff' },
+  CF:      { label: 'Client Focus',        color: '#D35400', textColor: '#fff' },
+  IH:      { label: 'Innovation Hub',      color: '#27AE60', textColor: '#fff' },
+  WR:      { label: 'War Room',            color: '#8E3B46', textColor: '#fff' },
+  BFAST:   { label: 'Breakfast',           color: '#E8C08A', textColor: '#5D4037' },
+  LUNCH:   { label: 'Lunch',               color: '#F7DC6F', textColor: '#5D4037' },
+  DINNER:  { label: 'Dinner',              color: '#E59866', textColor: '#5D4037' },
+  TRAVEL:  { label: 'Travel',              color: '#95A5A6', textColor: '#fff' },
+  QC:      { label: 'Quality Control',     color: '#1ABC9C', textColor: '#fff' },
+  DIT:     { label: 'DIT',                 color: '#148F77', textColor: '#fff' },
+  MM:      { label: 'Minutemen',           color: '#CA6F1E', textColor: '#fff' },
+  SETUP:   { label: 'Setup / Breakdown',   color: '#AAB7B8', textColor: '#333' },
+  MEETING: { label: 'Meeting / Standup',   color: '#5DADE2', textColor: '#fff' },
+  FREE:    { label: 'Free Time',           color: '#A9DFBF', textColor: '#1E8449' },
+};
+
+const TEAMS = {
+  team_pega:    { name:'Pega Staff',          color:'#003D7A' },
+  team_cr:      { name:'Client Room',         color:'#D35400' },
+  team_mm_ed:   { name:'Minutemen Editors',   color:'#6B3A2A' },
+  team_mm_br:   { name:'Minutemen Breakouts', color:'#1B5E20' },
+  team_mm_prod: { name:'Minutemen Producers', color:'#4A148C' },
+  team_ext:     { name:'External',            color:'#546E7A' },
+};
+
+const FEEDBACK_TYPES = [
+  { key: 'tech',      label: 'Tech Issue',      icon: '⚡', color: '#F39C12' },
+  { key: 'workflow',  label: 'Workflow',        icon: '↻', color: '#5DADE2' },
+  { key: 'personnel', label: 'Personnel',       icon: '\u{1F465}', color: '#A569BD' },
+  { key: 'content',   label: 'Content',         icon: '\u{1F3AC}', color: '#E94560' },
+  { key: 'kudos',     label: 'Kudos / Win',     icon: '✨', color: '#4CBA6A' },
+  { key: 'other',     label: 'Other',           icon: '\u{1F4DD}', color: '#8080A0' },
+];
+
+const PERSON_KEY = 'pwonsite_mobile_person';
+
+const STATE = {
+  data: null,
+  fb: null,           // { db, ref, set, get, onValue } from window._fbReady
+  user: null,         // firebase user
+  personId: null,
+  screen: 'loading',  // loading | picker | dashboard | schedule | feedback
+  scheduleDayId: null,
+  feedbackDraft: null,// { activityId, dayId, time, type, description }
+  nowTimer: null,
+};
+
+/* ---- Helpers ---- */
+function $(sel, root) { return (root || document).querySelector(sel); }
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatMinutes(totalMin) {
+  const h24 = Math.floor(totalMin / 60) % 24;
+  const m   = totalMin % 60;
+  const ampm = h24 >= 12 ? 'PM' : 'AM';
+  const h12  = h24 % 12 || 12;
+  return h12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+}
+
+function formatRange(s, e) { return formatMinutes(s) + ' – ' + formatMinutes(e); }
+
+function nowMinutes() {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function todayDateStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function findCurrentDay(data) {
+  const t = todayDateStr();
+  const exact = data.days.find(d => d.date === t);
+  if (exact) return exact;
+  // Fallback: nearest upcoming day, else last day
+  const upcoming = data.days.find(d => d.date >= t);
+  return upcoming || data.days[data.days.length - 1] || null;
+}
+
+function getActivitiesFor(personId, dayId) {
+  if (!STATE.data) return [];
+  return STATE.data.activities
+    .filter(a => a.personId === personId && a.dayId === dayId)
+    .slice()
+    .sort((a, b) => a.startMinute - b.startMinute);
+}
+
+function getMealsFor(dayId) {
+  if (!STATE.data) return [];
+  return (STATE.data.meals || [])
+    .filter(m => m.dayId === dayId)
+    .slice()
+    .sort((a, b) => a.startMinute - b.startMinute);
+}
+
+function relativeText(min, isToday) {
+  if (!isToday) return null;
+  const now = nowMinutes();
+  const diff = min - now;
+  if (diff < -60) return null;
+  if (diff < -1) return Math.abs(diff) + ' min ago';
+  if (diff === 0 || diff === -1 || diff === 1) return 'now';
+  if (diff < 60) return 'in ' + diff + ' min';
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return 'in ' + h + 'h' + (m ? ' ' + m + 'm' : '');
+}
+
+function findCurrentActivity(personId, dayId) {
+  const acts = getActivitiesFor(personId, dayId);
+  const m = nowMinutes();
+  return acts.find(a => a.startMinute <= m && m < a.endMinute) || null;
+}
+
+function findNextActivity(personId, dayId) {
+  const acts = getActivitiesFor(personId, dayId);
+  const m = nowMinutes();
+  return acts.find(a => a.startMinute > m) || null;
+}
+
+function findNextMeal(personId, dayId, data, isToday) {
+  // Prefer the person's own MEAL-typed activity (e.g. "Breakfast" on their schedule),
+  // fall back to the day's general meals. Only filter by current time when dayId is today.
+  if (dayId) {
+    const m = nowMinutes();
+    const ownAll = getActivitiesFor(personId, dayId)
+      .filter(a => ['BFAST','LUNCH','DINNER'].includes(a.typeKey));
+    const own = isToday ? ownAll.filter(a => a.endMinute > m) : ownAll;
+    if (own.length) return { kind: 'activity', value: own[0], day: isToday ? null : data.days.find(d => d.id === dayId) };
+    const genAll = getMealsFor(dayId);
+    const gen = isToday ? genAll.filter(meal => meal.endMinute > m) : genAll;
+    if (gen.length) return { kind: 'meal', value: gen[0], day: isToday ? null : data.days.find(d => d.id === dayId) };
+  }
+  // Look ahead to future days (only relevant if today's options are exhausted)
+  if (data) {
+    const today = todayDateStr();
+    const futureDays = data.days.filter(d => d.date > today && d.id !== dayId);
+    for (const d of futureDays) {
+      const ownF = getActivitiesFor(personId, d.id)
+        .filter(a => ['BFAST','LUNCH','DINNER'].includes(a.typeKey));
+      if (ownF.length) return { kind: 'activity', value: ownF[0], day: d };
+      const genF = getMealsFor(d.id);
+      if (genF.length) return { kind: 'meal', value: genF[0], day: d };
+    }
+  }
+  return null;
+}
+
+/* ---- Rendering ---- */
+function renderHeader(opts) {
+  // opts: { back, title, showUser }
+  const back = opts.back ? `<button class="back-btn" id="hdr-back" aria-label="Back">&larr;</button>` : '';
+  const userChip = opts.showUser && STATE.personId
+    ? `<button class="user-chip" id="hdr-user">${escapeHtml(getPersonName(STATE.personId))}</button>`
+    : '';
+  // Title may contain trusted markup (the brand span); call sites pass only literals.
+  return `
+    <header class="app-header">
+      ${back}
+      <h1>${opts.title || 'PW<span class="accent">onsite</span>'}</h1>
+      ${userChip}
+    </header>`;
+}
+
+function getPersonName(personId) {
+  const p = STATE.data && STATE.data.people.find(x => x.id === personId);
+  return p ? p.name : '';
+}
+
+function getPerson(personId) {
+  return STATE.data && STATE.data.people.find(x => x.id === personId);
+}
+
+function renderPicker() {
+  // Group people by primary team
+  const groups = {};
+  STATE.data.people.forEach(p => {
+    const teamId = (p.teamIds && p.teamIds[0]) || 'team_other';
+    if (!groups[teamId]) groups[teamId] = [];
+    groups[teamId].push(p);
+  });
+  const teamOrder = ['team_pega', 'team_cr', 'team_ext', 'team_mm_prod', 'team_mm_ed', 'team_mm_br'];
+  const teamIds = Object.keys(groups).sort((a, b) => {
+    const ai = teamOrder.indexOf(a); const bi = teamOrder.indexOf(b);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+  const groupsHtml = teamIds.map(teamId => {
+    const team = TEAMS[teamId] || { name: 'Other', color: '#546E7A' };
+    const rows = groups[teamId]
+      .slice()
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map(p => `
+        <button class="picker-row" data-person="${escapeHtml(p.id)}">
+          <div class="avatar" style="background:${escapeHtml(team.color)}">${escapeHtml((p.name || '?').slice(0, 1).toUpperCase())}</div>
+          <div class="info">
+            <div class="name">${escapeHtml(p.name)}</div>
+            <div class="role">${escapeHtml(p.role || '')}</div>
+          </div>
+        </button>`).join('');
+    return `
+      <div class="picker-team">
+        <span class="picker-team-label" style="background:${escapeHtml(team.color)}">${escapeHtml(team.name)}</span>
+        ${rows}
+      </div>`;
+  }).join('');
+
+  $('#app').innerHTML = `
+    ${renderHeader({ title: 'PW<span class="accent">onsite</span>', showUser: false })}
+    <div class="screen">
+      <div class="picker-intro">
+        <h2>Who are you?</h2>
+        <p>Pick yourself to load your schedule.</p>
+      </div>
+      ${groupsHtml}
+    </div>`;
+
+  $('#app').querySelectorAll('.picker-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.getAttribute('data-person');
+      STATE.personId = id;
+      try { localStorage.setItem(PERSON_KEY, id); } catch (e) {}
+      goDashboard();
+    });
+  });
+}
+
+function renderDashboard() {
+  const person = getPerson(STATE.personId);
+  if (!person) { goPicker(); return; }
+  const today = findCurrentDay(STATE.data);
+  const isToday = today && today.date === todayDateStr();
+  const cur  = isToday ? findCurrentActivity(STATE.personId, today.id) : null;
+  const todayActs = today ? getActivitiesFor(STATE.personId, today.id) : [];
+  const next = isToday
+    ? findNextActivity(STATE.personId, today.id)
+    : todayActs[0] || null;
+  const meal = findNextMeal(STATE.personId, today ? today.id : null, STATE.data, isToday);
+  const remaining = isToday
+    ? todayActs.filter(a => a.endMinute > nowMinutes())
+    : todayActs;
+
+  const eventCard = (label, act) => {
+    if (!act) return `
+      <div class="card">
+        <div class="card-label">${escapeHtml(label)}</div>
+        <div class="card-empty">Nothing scheduled.</div>
+      </div>`;
+    const t = ACTIVITY_TYPES[act.typeKey] || ACTIVITY_TYPES.MEETING;
+    const rel = relativeText(act.startMinute, isToday);
+    return `
+      <div class="card">
+        <div class="card-label">${escapeHtml(label)}</div>
+        <div class="event-block">
+          <div class="event-bar" style="background:${escapeHtml(t.color)}"></div>
+          <div class="event-info">
+            <div class="event-title">${escapeHtml(act.label)}</div>
+            <div class="event-time">${escapeHtml(formatRange(act.startMinute, act.endMinute))}</div>
+            <span class="event-type-pill" style="background:${escapeHtml(t.color)};color:${escapeHtml(t.textColor)}">${escapeHtml(t.label)}</span>
+            ${rel ? `<div class="event-relative ${label === 'NOW' ? 'muted' : ''}">${escapeHtml(rel)}</div>` : ''}
+            ${act.notes ? `<div class="event-notes">${escapeHtml(act.notes)}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+  };
+
+  let mealHtml;
+  if (!meal) {
+    mealHtml = `
+      <div class="card">
+        <div class="card-label">NEXT MEAL</div>
+        <div class="card-empty">No more meals scheduled.</div>
+      </div>`;
+  } else {
+    const v = meal.value;
+    const typeKey = meal.kind === 'activity' ? v.typeKey : v.type;
+    const t = ACTIVITY_TYPES[typeKey] || ACTIVITY_TYPES.LUNCH;
+    const dayPart = meal.day ? meal.day.shortLabel + ' · ' : '';
+    const rel = (meal.day || !isToday) ? null : relativeText(v.startMinute, true);
+    const loc = meal.kind === 'meal' ? v.location : '';
+    const title = v.label || t.label;
+    mealHtml = `
+      <div class="card">
+        <div class="card-label">NEXT MEAL</div>
+        <div class="event-block">
+          <div class="event-bar" style="background:${escapeHtml(t.color)}"></div>
+          <div class="event-info">
+            <div class="event-title">${escapeHtml(title)}</div>
+            <div class="event-time">${escapeHtml(dayPart + formatRange(v.startMinute, v.endMinute))}</div>
+            ${loc ? `<div class="event-notes">${escapeHtml(loc)}</div>` : ''}
+            ${rel ? `<div class="event-relative">${escapeHtml(rel)}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  const remainingHtml = remaining.length ? `
+    <div class="card">
+      <div class="card-label">${isToday ? 'REST OF DAY' : escapeHtml((today && today.shortLabel) || 'SCHEDULE')}</div>
+      ${remaining.slice(0, 5).map(a => {
+        const t = ACTIVITY_TYPES[a.typeKey] || ACTIVITY_TYPES.MEETING;
+        return `
+          <div class="event-block" style="margin-top:8px">
+            <div class="event-bar" style="background:${escapeHtml(t.color)};min-height:24px"></div>
+            <div class="event-info">
+              <div style="font-size:14px;font-weight:600">${escapeHtml(a.label)}</div>
+              <div style="font-size:12px;color:#a0a0c0;margin-top:2px">${escapeHtml(formatRange(a.startMinute, a.endMinute))}</div>
+            </div>
+          </div>`;
+      }).join('')}
+      ${remaining.length > 5 ? `<div style="font-size:12px;color:#8080a0;margin-top:10px;text-align:center">+${remaining.length - 5} more — tap Schedule</div>` : ''}
+    </div>` : '';
+
+  const dayLine = today
+    ? (isToday ? 'Today · ' + today.label + ' · ' + today.date
+                : 'Up next: ' + today.label + ' · ' + today.date)
+    : 'No active conference day';
+
+  $('#app').innerHTML = `
+    ${renderHeader({ title: 'Dashboard', showUser: true })}
+    <div class="screen">
+      <div class="dash-greet">
+        <div class="hello">Hello,</div>
+        <div class="name">${escapeHtml(person.name)}</div>
+        <div class="when">${escapeHtml(dayLine)}</div>
+      </div>
+      ${eventCard(cur ? 'NOW' : 'NEXT UP', cur || next)}
+      ${cur && next ? eventCard('NEXT UP', next) : ''}
+      ${mealHtml}
+      ${remainingHtml}
+      <div class="dash-actions">
+        <button class="big-btn schedule" id="btn-schedule">
+          <span class="icon">\u{1F4C5}</span>
+          Schedule
+        </button>
+        <button class="big-btn feedback" id="btn-feedback">
+          <span class="icon">\u{1F4AC}</span>
+          Feedback
+        </button>
+      </div>
+    </div>`;
+
+  $('#hdr-user').addEventListener('click', () => {
+    if (confirm('Switch to a different person?')) {
+      STATE.personId = null;
+      try { localStorage.removeItem(PERSON_KEY); } catch (e) {}
+      goPicker();
+    }
+  });
+  $('#btn-schedule').addEventListener('click', goSchedule);
+  $('#btn-feedback').addEventListener('click', () => goFeedback());
+}
+
+function renderSchedule() {
+  const person = getPerson(STATE.personId);
+  if (!person) { goPicker(); return; }
+  const today = findCurrentDay(STATE.data);
+  if (!STATE.scheduleDayId) STATE.scheduleDayId = today ? today.id : (STATE.data.days[0] && STATE.data.days[0].id);
+  const day = STATE.data.days.find(d => d.id === STATE.scheduleDayId) || STATE.data.days[0];
+  const acts = getActivitiesFor(STATE.personId, day.id);
+  const isToday = day.date === todayDateStr();
+  const now = nowMinutes();
+
+  const tabsHtml = STATE.data.days.map(d => `
+    <button class="day-tab ${d.id === day.id ? 'active' : ''}" data-day="${escapeHtml(d.id)}">
+      ${escapeHtml(d.shortLabel || d.label)}
+    </button>`).join('');
+
+  let listHtml;
+  if (!acts.length) {
+    listHtml = `<div class="card-empty" style="text-align:center;padding:40px 0">No activities scheduled for ${escapeHtml(person.name)} on this day.</div>`;
+  } else if (isToday) {
+    const past = acts.filter(a => a.endMinute <= now);
+    const cur  = acts.filter(a => a.startMinute <= now && a.endMinute > now);
+    const fut  = acts.filter(a => a.startMinute > now);
+    const sect = (label, arr) => arr.length ? `
+      <div class="sched-section-label">${escapeHtml(label)}</div>
+      ${arr.map(a => renderSchedItem(a, a.startMinute <= now && a.endMinute > now)).join('')}
+    ` : '';
+    listHtml = `
+      <div class="sched-list">
+        ${sect('Now', cur)}
+        ${sect('Upcoming', fut)}
+        ${sect('Earlier today', past)}
+      </div>`;
+  } else {
+    listHtml = `<div class="sched-list">${acts.map(a => renderSchedItem(a, false)).join('')}</div>`;
+  }
+
+  $('#app').innerHTML = `
+    ${renderHeader({ back: true, title: 'Schedule', showUser: true })}
+    <div class="screen">
+      <div class="day-tabs">${tabsHtml}</div>
+      ${listHtml}
+    </div>`;
+
+  $('#hdr-back').addEventListener('click', goDashboard);
+  $('#hdr-user').addEventListener('click', () => {
+    if (confirm('Switch to a different person?')) {
+      STATE.personId = null;
+      try { localStorage.removeItem(PERSON_KEY); } catch (e) {}
+      goPicker();
+    }
+  });
+  $('#app').querySelectorAll('.day-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      STATE.scheduleDayId = tab.getAttribute('data-day');
+      renderSchedule();
+    });
+  });
+}
+
+function renderSchedItem(a, isNow) {
+  const t = ACTIVITY_TYPES[a.typeKey] || ACTIVITY_TYPES.MEETING;
+  return `
+    <div class="sched-item ${isNow ? 'is-now' : ''}" style="border-left-color:${escapeHtml(t.color)}">
+      <div class="sched-item-head">
+        <div class="sched-item-title">${escapeHtml(a.label)}</div>
+        <div class="sched-item-time">${escapeHtml(formatRange(a.startMinute, a.endMinute))}</div>
+      </div>
+      <div class="sched-item-meta">${escapeHtml(t.label)}${a.notes ? ' · ' + escapeHtml(a.notes) : ''}</div>
+    </div>`;
+}
+
+function renderFeedback() {
+  const person = getPerson(STATE.personId);
+  if (!person) { goPicker(); return; }
+  if (!STATE.feedbackDraft) {
+    const today = findCurrentDay(STATE.data);
+    const cur = today ? findCurrentActivity(STATE.personId, today.id) : null;
+    const next = today ? findNextActivity(STATE.personId, today.id) : null;
+    const ctx = cur || next;
+    STATE.feedbackDraft = {
+      activityId: ctx ? ctx.id : null,
+      dayId: today ? today.id : null,
+      type: '',
+      description: '',
+    };
+  }
+  const draft = STATE.feedbackDraft;
+  const day = draft.dayId ? STATE.data.days.find(d => d.id === draft.dayId) : null;
+  const act = draft.activityId ? STATE.data.activities.find(a => a.id === draft.activityId) : null;
+  const submittedAt = new Date();
+  const timeStr = submittedAt.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  const typesHtml = FEEDBACK_TYPES.map(ft => `
+    <button class="fb-type-btn ${draft.type === ft.key ? 'active' : ''}"
+            data-type="${escapeHtml(ft.key)}"
+            style="--type-color:${escapeHtml(ft.color)}">
+      <span class="ico">${ft.icon}</span>
+      ${escapeHtml(ft.label)}
+    </button>`).join('');
+
+  $('#app').innerHTML = `
+    ${renderHeader({ back: true, title: 'Feedback', showUser: true })}
+    <div class="screen">
+      <div class="fb-context">
+        <div class="fb-context-row">
+          <div class="lbl">Who</div>
+          <div class="val">${escapeHtml(person.name)}${person.role ? ' · ' + escapeHtml(person.role) : ''}</div>
+        </div>
+        <div class="fb-context-row">
+          <div class="lbl">Day</div>
+          <div class="val">${escapeHtml(day ? day.label + ' · ' + day.date : 'Off-day')}</div>
+        </div>
+        <div class="fb-context-row">
+          <div class="lbl">Time</div>
+          <div class="val">${escapeHtml(timeStr)}</div>
+        </div>
+        <div class="fb-context-row">
+          <div class="lbl">Event</div>
+          <div class="val">
+            ${act
+              ? escapeHtml(act.label) + ' <span style="color:#8080a0">(' + escapeHtml(formatRange(act.startMinute, act.endMinute)) + ')</span>'
+              : '<span style="color:#8080a0">— none —</span>'}
+            <button class="fb-context-edit" id="fb-pick-act">${act ? 'change' : 'pick'}</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fb-section-label">What kind of feedback?</div>
+      <div class="fb-types">${typesHtml}</div>
+
+      <div class="fb-section-label">Tell us more</div>
+      <textarea class="fb-textarea" id="fb-desc" placeholder="What happened? Any context that would help.">${escapeHtml(draft.description)}</textarea>
+
+      <div class="fb-submit-row">
+        <button class="fb-cancel" id="fb-cancel">Cancel</button>
+        <button class="fb-submit" id="fb-submit" disabled>Submit</button>
+      </div>
+    </div>`;
+
+  $('#hdr-back').addEventListener('click', () => { STATE.feedbackDraft = null; goDashboard(); });
+  $('#hdr-user').addEventListener('click', () => {
+    if (confirm('Switch to a different person? (Your draft will be cleared.)')) {
+      STATE.personId = null;
+      STATE.feedbackDraft = null;
+      try { localStorage.removeItem(PERSON_KEY); } catch (e) {}
+      goPicker();
+    }
+  });
+
+  $('#fb-pick-act').addEventListener('click', openActPicker);
+
+  $('#app').querySelectorAll('.fb-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      draft.type = btn.getAttribute('data-type');
+      $('#app').querySelectorAll('.fb-type-btn').forEach(b => b.classList.toggle('active', b === btn));
+      updateSubmitState();
+    });
+  });
+
+  const desc = $('#fb-desc');
+  desc.addEventListener('input', () => {
+    draft.description = desc.value;
+    updateSubmitState();
+  });
+
+  $('#fb-cancel').addEventListener('click', () => {
+    STATE.feedbackDraft = null;
+    goDashboard();
+  });
+
+  $('#fb-submit').addEventListener('click', submitFeedback);
+
+  updateSubmitState();
+}
+
+function updateSubmitState() {
+  const d = STATE.feedbackDraft;
+  const ok = d && d.type && (d.description || '').trim().length > 0;
+  const btn = $('#fb-submit');
+  if (btn) btn.disabled = !ok;
+}
+
+function openActPicker() {
+  const draft = STATE.feedbackDraft;
+  const day = draft.dayId ? STATE.data.days.find(d => d.id === draft.dayId) : findCurrentDay(STATE.data);
+  if (!day) { alert('No conference day available'); return; }
+  const acts = getActivitiesFor(STATE.personId, day.id);
+  const overlay = $('#act-pick-overlay');
+  const list = $('#act-pick-list');
+  if (!acts.length) {
+    list.innerHTML = `<div style="text-align:center;color:#8080a0;padding:30px 0">Nothing on your schedule for ${escapeHtml(day.label)}.</div>`;
+  } else {
+    list.innerHTML = `
+      <button class="act-pick-item ${!draft.activityId ? 'selected' : ''}" data-act-id=""
+              style="border-left-color:#404068">
+        <div class="t" style="color:#8080a0">— No specific event —</div>
+        <div class="s">General feedback for ${escapeHtml(day.label)}</div>
+      </button>
+      ${acts.map(a => {
+        const t = ACTIVITY_TYPES[a.typeKey] || ACTIVITY_TYPES.MEETING;
+        return `
+          <button class="act-pick-item ${draft.activityId === a.id ? 'selected' : ''}" data-act-id="${escapeHtml(a.id)}"
+                  style="border-left-color:${escapeHtml(t.color)}">
+            <div class="t">${escapeHtml(a.label)}</div>
+            <div class="s">${escapeHtml(formatRange(a.startMinute, a.endMinute))} · ${escapeHtml(t.label)}</div>
+          </button>`;
+      }).join('')}`;
+  }
+  overlay.classList.add('show');
+  list.querySelectorAll('.act-pick-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const id = item.getAttribute('data-act-id');
+      draft.activityId = id || null;
+      overlay.classList.remove('show');
+      renderFeedback();
+    });
+  });
+}
+
+async function submitFeedback() {
+  const d = STATE.feedbackDraft;
+  if (!d || !d.type || !(d.description || '').trim()) return;
+  const person = getPerson(STATE.personId);
+  const day = d.dayId ? STATE.data.days.find(x => x.id === d.dayId) : null;
+  const act = d.activityId ? STATE.data.activities.find(x => x.id === d.activityId) : null;
+  const ftype = FEEDBACK_TYPES.find(t => t.key === d.type);
+  const now = new Date();
+  const submittedMinute = now.getHours() * 60 + now.getMinutes();
+  const submittedDateStr = todayDateStr();
+
+  const entry = {
+    type:        d.type,
+    typeLabel:   ftype ? ftype.label : d.type,
+    description: d.description.trim(),
+    personId:    STATE.personId,
+    personName:  person ? person.name : '',
+    personRole:  person ? (person.role || '') : '',
+    dayId:       day ? day.id : null,
+    dayLabel:    day ? day.label : '',
+    dayDate:     day ? day.date : null,
+    activityId:  act ? act.id : null,
+    activityLabel: act ? act.label : '',
+    activityType:  act ? act.typeKey : null,
+    activityStart: act ? act.startMinute : null,
+    activityEnd:   act ? act.endMinute   : null,
+    submittedAt:        Date.now(),
+    submittedDateStr,
+    submittedMinute,
+    submittedTimeStr: formatMinutes(submittedMinute),
+    submittedBy:      (STATE.user && STATE.user.email) || '',
+    submittedByName:  (STATE.user && STATE.user.displayName) || '',
+  };
+
+  const submitBtn = $('#fb-submit');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending…'; }
+
+  try {
+    const id = 'fb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const refRoot = STATE.fb.ref(STATE.fb.db, 'pwonsite/feedback/' + id);
+    await STATE.fb.set(refRoot, entry);
+    showToast('Feedback submitted');
+    STATE.feedbackDraft = null;
+    goDashboard();
+  } catch (e) {
+    console.warn('Feedback save failed:', e);
+    alert('Could not submit feedback: ' + (e.message || e));
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
+  }
+}
+
+function showToast(msg) {
+  const toast = $('#fb-toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+/* ---- Navigation ---- */
+function goPicker()    { STATE.screen = 'picker';    renderPicker(); }
+function goDashboard() { STATE.screen = 'dashboard'; renderDashboard(); ensureNowTimer(); }
+function goSchedule()  { STATE.screen = 'schedule';  renderSchedule(); }
+function goFeedback()  { STATE.screen = 'feedback';  renderFeedback(); }
+
+function ensureNowTimer() {
+  if (STATE.nowTimer) return;
+  STATE.nowTimer = setInterval(() => {
+    if (STATE.screen === 'dashboard') renderDashboard();
+    else if (STATE.screen === 'schedule') renderSchedule();
+  }, 60000);
+}
+
+/* ---- Boot ---- */
+$('#act-pick-close').addEventListener('click', () => $('#act-pick-overlay').classList.remove('show'));
+$('#act-pick-overlay').addEventListener('click', e => { if (e.target.id === 'act-pick-overlay') e.currentTarget.classList.remove('show'); });
+
+(async function boot() {
+  const fb = await window._fbReady;
+  STATE.fb   = { db: fb.db, ref: fb.ref, set: fb.set, get: fb.get, onValue: fb.onValue };
+  STATE.user = fb.user;
+
+  const dataRef = STATE.fb.ref(STATE.fb.db, 'pwonsite/data');
+  STATE.fb.onValue(dataRef, snap => {
+    const val = snap.val();
+    if (!val || !val.people || !val.days) {
+      $('#app').innerHTML = `<div id="mobile-loading" style="padding:40px;text-align:center">No schedule data found.<br/><br/>Ask the admin to set it up on the desktop site first.</div>`;
+      return;
+    }
+    STATE.data = val;
+    // Restore selection
+    if (!STATE.personId) {
+      try {
+        const saved = localStorage.getItem(PERSON_KEY);
+        if (saved && val.people.some(p => p.id === saved)) STATE.personId = saved;
+      } catch (e) {}
+    } else if (!val.people.some(p => p.id === STATE.personId)) {
+      STATE.personId = null;
+      try { localStorage.removeItem(PERSON_KEY); } catch (e) {}
+    }
+    if (!STATE.personId) goPicker();
+    else if (STATE.screen === 'loading' || STATE.screen === 'picker') goDashboard();
+    else if (STATE.screen === 'dashboard') renderDashboard();
+    else if (STATE.screen === 'schedule')  renderSchedule();
+    else if (STATE.screen === 'feedback')  { /* keep draft, just refresh data references on next render */ }
+  });
+})();
+</script>
+</body>
+</html>
