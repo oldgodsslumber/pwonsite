@@ -1172,40 +1172,63 @@ function ensureNowTimer() {
   }, 60000);
 }
 
-/* ---- Boot ---- */
-$('#act-pick-close').addEventListener('click', () => $('#act-pick-overlay').classList.remove('show'));
-$('#act-pick-overlay').addEventListener('click', e => { if (e.target.id === 'act-pick-overlay') e.currentTarget.classList.remove('show'); });
+/* ---- Boot ----
+   auth.js loads as a deferred ES module, so window._fbReady (the Promise it sets up)
+   isn't defined until after the document is parsed. Wait for DOMContentLoaded before
+   reading it; otherwise `await window._fbReady` resolves immediately to undefined and
+   the page hangs on the "Loading…" placeholder. */
+function _bootMobile() {
+  $('#act-pick-close').addEventListener('click', () => $('#act-pick-overlay').classList.remove('show'));
+  $('#act-pick-overlay').addEventListener('click', e => { if (e.target.id === 'act-pick-overlay') e.currentTarget.classList.remove('show'); });
 
-(async function boot() {
-  const fb = await window._fbReady;
-  STATE.fb   = { db: fb.db, ref: fb.ref, set: fb.set, get: fb.get, onValue: fb.onValue };
-  STATE.user = fb.user;
+  if (!window._fbReady) {
+    $('#app').innerHTML = `<div id="mobile-loading" style="padding:40px;text-align:center;color:#e05555">
+      Auth module failed to load.<br/><br/>Check the network tab for <code>auth.js</code>.
+    </div>`;
+    return;
+  }
 
-  const dataRef = STATE.fb.ref(STATE.fb.db, 'pwonsite/data');
-  STATE.fb.onValue(dataRef, snap => {
-    const val = snap.val();
-    if (!val || !val.people || !val.days) {
-      $('#app').innerHTML = `<div id="mobile-loading" style="padding:40px;text-align:center">No schedule data found.<br/><br/>Ask the admin to set it up on the desktop site first.</div>`;
-      return;
-    }
-    STATE.data = val;
-    // Restore selection
-    if (!STATE.personId) {
-      try {
-        const saved = localStorage.getItem(PERSON_KEY);
-        if (saved && val.people.some(p => p.id === saved)) STATE.personId = saved;
-      } catch (e) {}
-    } else if (!val.people.some(p => p.id === STATE.personId)) {
-      STATE.personId = null;
-      try { localStorage.removeItem(PERSON_KEY); } catch (e) {}
-    }
-    if (!STATE.personId) goPicker();
-    else if (STATE.screen === 'loading' || STATE.screen === 'picker') goDashboard();
-    else if (STATE.screen === 'dashboard') renderDashboard();
-    else if (STATE.screen === 'schedule')  renderSchedule();
-    else if (STATE.screen === 'feedback')  { /* keep draft, just refresh data references on next render */ }
+  window._fbReady.then(fb => {
+    STATE.fb   = { db: fb.db, ref: fb.ref, set: fb.set, get: fb.get, onValue: fb.onValue };
+    STATE.user = fb.user;
+
+    const dataRef = STATE.fb.ref(STATE.fb.db, 'pwonsite/data');
+    STATE.fb.onValue(dataRef, snap => {
+      const val = snap.val();
+      if (!val || !val.people || !val.days) {
+        $('#app').innerHTML = `<div id="mobile-loading" style="padding:40px;text-align:center">No schedule data found.<br/><br/>Ask the admin to set it up on the desktop site first.</div>`;
+        return;
+      }
+      STATE.data = val;
+      // Restore selection
+      if (!STATE.personId) {
+        try {
+          const saved = localStorage.getItem(PERSON_KEY);
+          if (saved && val.people.some(p => p.id === saved)) STATE.personId = saved;
+        } catch (e) {}
+      } else if (!val.people.some(p => p.id === STATE.personId)) {
+        STATE.personId = null;
+        try { localStorage.removeItem(PERSON_KEY); } catch (e) {}
+      }
+      if (!STATE.personId) goPicker();
+      else if (STATE.screen === 'loading' || STATE.screen === 'picker') goDashboard();
+      else if (STATE.screen === 'dashboard') renderDashboard();
+      else if (STATE.screen === 'schedule')  renderSchedule();
+      else if (STATE.screen === 'feedback')  { /* keep draft, just refresh data references on next render */ }
+    }, err => {
+      console.warn('Firebase read error:', err);
+      $('#app').innerHTML = `<div id="mobile-loading" style="padding:40px;text-align:center;color:#e05555">
+        Could not load schedule.<br/><br/>${escapeHtml(err.message || String(err))}
+      </div>`;
+    });
   });
-})();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _bootMobile);
+} else {
+  _bootMobile();
+}
 </script>
 </body>
 </html>
