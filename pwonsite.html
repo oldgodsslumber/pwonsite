@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PWonsite — PegaWorld On-Site Scheduler</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- Firebase + Google sign-in gate. Sets window._fb (modular SDK handles) and resolves window._fbReady after auth. -->
+<script type="module" src="./auth.js"></script>
 <style>
 /* ============================================================
    RESET & BASE
@@ -1151,13 +1151,10 @@ body {
 
 <script>
 /* ============================================================
-   FIREBASE CONFIG
-   Set databaseURL to enable shared real-time sync.
-   Leave empty to fall back to localStorage (local-only).
+   FIREBASE
+   Initialized in auth.js (Google sign-in + admin approval).
+   STORAGE.initFirebase() consumes window._fb after window._fbReady resolves.
    ============================================================ */
-const FIREBASE_CONFIG = {
-  databaseURL: 'https://pwonsite-8795f-default-rtdb.firebaseio.com'
-};
 
 /* ============================================================
    SECTION 1: CONSTANTS & CONFIG
@@ -1243,13 +1240,14 @@ const STATE = {
    ============================================================ */
 const STORAGE = {
   KEY: 'pwonsite_data',
-  _ref: null, // Firebase DatabaseReference, set by initFirebase()
+  _fb: null,       // { db, ref, set, get, onValue } from auth.js
+  _dataRef: null,  // ref(db, 'pwonsite/data')
 
   initFirebase() {
-    if (!FIREBASE_CONFIG.databaseURL) return false;
+    if (!window._fb) return false;
     try {
-      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-      this._ref = firebase.database().ref('pwonsite/data');
+      this._fb = window._fb;
+      this._dataRef = this._fb.ref(this._fb.db, 'pwonsite/data');
       return true;
     } catch(e) {
       console.warn('Firebase init failed, using localStorage:', e);
@@ -1269,8 +1267,8 @@ const STORAGE = {
     // Always cache locally for offline fallback
     try { localStorage.setItem(this.KEY, JSON.stringify(STATE.data)); } catch(e) {}
     // Write to Firebase if connected (broadcasts to all open clients)
-    if (this._ref) {
-      this._ref.set(STATE.data).catch(e => console.warn('Firebase write failed:', e));
+    if (this._dataRef) {
+      this._fb.set(this._dataRef, STATE.data).catch(e => console.warn('Firebase write failed:', e));
     }
   },
 
@@ -3113,20 +3111,26 @@ function init() {
     roleSelect.appendChild(opt);
   });
 
-  // 5. Load data — Firebase (shared, real-time) or localStorage (local-only)
-  const useFirebase = STORAGE.initFirebase();
-  if (useFirebase) {
+  // 5. Load data — wait for Google sign-in (auth.js) before subscribing.
+  //    Event listeners below register synchronously; data fills in after auth resolves.
+  _setSyncStatus('saving'); // "connecting" while waiting for sign-in + first snapshot
+  window._fbReady.then(() => {
+    if (!STORAGE.initFirebase()) {
+      _setSyncStatus('offline');
+      const saved = STORAGE.load();
+      _applyData((saved && saved.version >= 3) ? saved : STORAGE.buildDefault(), true);
+      return;
+    }
     let _firstSnapshot = true;
-    _setSyncStatus('saving'); // "connecting" while waiting for first snapshot
     // Subscribe — fires immediately with current data, then on every remote change
-    STORAGE._ref.on('value', snapshot => {
+    STORAGE._fb.onValue(STORAGE._dataRef, snapshot => {
       const remote = snapshot.val();
       const isFirst = _firstSnapshot;
       _firstSnapshot = false;
       if (!remote) {
         // Database is empty — seed it with default data
         const def = STORAGE.buildDefault();
-        STORAGE._ref.set(def);
+        STORAGE._fb.set(STORAGE._dataRef, def);
         _applyData(def, true);
       } else {
         _applyData(remote, isFirst);
@@ -3140,14 +3144,11 @@ function init() {
       _applyData((saved && saved.version >= 3) ? saved : STORAGE.buildDefault(), true);
     });
     // Monitor connection state
-    firebase.database().ref('.info/connected').on('value', snap => {
-      if (STATE.data.activities) _setSyncStatus(snap.val() ? 'live' : 'offline');
+    const connRef = STORAGE._fb.ref(STORAGE._fb.db, '.info/connected');
+    STORAGE._fb.onValue(connRef, snap => {
+      if (STATE.data && STATE.data.activities) _setSyncStatus(snap.val() ? 'live' : 'offline');
     });
-  } else {
-    // No Firebase configured — use localStorage
-    const saved = STORAGE.load();
-    _applyData((saved && saved.version >= 3) ? saved : STORAGE.buildDefault(), true);
-  }
+  });
 
   // ---- Event: Day tabs ----
   document.getElementById('day-tabs').addEventListener('click', e => {
@@ -3283,8 +3284,8 @@ function init() {
       STATE.collapseMode = false;
       document.getElementById('btn-toggle-collapse').classList.remove('active');
       // Write default to Firebase so all clients reset
-      if (STORAGE._ref) {
-        STORAGE._ref.set(def);
+      if (STORAGE._dataRef) {
+        STORAGE._fb.set(STORAGE._dataRef, def);
       } else {
         STORAGE.save();
         RENDER.all();
