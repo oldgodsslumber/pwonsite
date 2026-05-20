@@ -83,6 +83,78 @@ input, textarea, select { font-family: inherit; font-size: 15px; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.app-header .sim-btn {
+  font-size: 12px;
+  background: #2d2d4e;
+  border: 1px solid #404068;
+  color: #c0c0e0;
+  width: 32px;
+  height: 28px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+.app-header .sim-btn.active {
+  background: #b46518;
+  border-color: #e89047;
+  color: #fff;
+}
+/* Strip across the top of the screen, visible whenever a SIM override is set.
+   Bright orange so testers can't miss it; tap to open the sim sheet. */
+.sim-banner {
+  background: #b46518;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-align: center;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #e89047;
+  flex-shrink: 0;
+}
+.sim-banner .sim-clear {
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.4);
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 8px;
+  margin-left: 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+/* Sim sheet — reuses the activity-pick sheet layout. */
+.sim-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.sim-field label { font-size: 11px; letter-spacing: .08em; color: #8080a0; text-transform: uppercase; }
+.sim-field input, .sim-field select {
+  background: #1e1e28;
+  border: 1px solid #404068;
+  color: #e0e0f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 16px;
+  font-family: inherit;
+}
+.sim-actions { display: flex; gap: 8px; }
+.sim-actions button {
+  flex: 1;
+  background: #2d2d4e;
+  border: 1px solid #404068;
+  color: #e0e0f0;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.sim-actions button.primary { background: #b46518; border-color: #e89047; }
+.sim-actions button.danger  { background: transparent; color: #e89047; }
 
 /* ---- Screen ---- */
 .screen {
@@ -560,6 +632,36 @@ const FEEDBACK_TYPES = [
 ];
 
 const PERSON_KEY = 'pwonsite_mobile_person';
+// Test-mode time override. When set, the app pretends "now" is the real clock
+// shifted by this many milliseconds, so testers can preview the schedule from
+// any moment of the event without changing their device clock. Persisted so a
+// reload doesn't drop the override mid-test.
+const SIM_KEY = 'pwonsite_mobile_simoffset';
+const SIM = { offset: 0 };
+try {
+  const v = parseInt(localStorage.getItem(SIM_KEY) || '0', 10);
+  if (Number.isFinite(v)) SIM.offset = v;
+} catch (e) {}
+function simNow() { return new Date(Date.now() + (SIM.offset || 0)); }
+function simActive() { return !!SIM.offset; }
+function setSimTarget(targetDate) {
+  // targetDate is a Date the tester wants "now" to be. Store the offset so
+  // the simulated clock keeps ticking forward from there.
+  SIM.offset = targetDate.getTime() - Date.now();
+  try { localStorage.setItem(SIM_KEY, String(SIM.offset)); } catch (e) {}
+}
+function clearSim() {
+  SIM.offset = 0;
+  try { localStorage.removeItem(SIM_KEY); } catch (e) {}
+}
+function formatSimBadge() {
+  const d = simNow();
+  const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+  const h24 = d.getHours();
+  const ampm = h24 >= 12 ? 'PM' : 'AM';
+  const h12 = h24 % 12 || 12;
+  return `SIM · ${dow} ${d.getMonth()+1}/${d.getDate()} ${h12}:${String(d.getMinutes()).padStart(2,'0')} ${ampm}`;
+}
 
 const STATE = {
   data: null,
@@ -590,12 +692,12 @@ function formatMinutes(totalMin) {
 function formatRange(s, e) { return formatMinutes(s) + ' – ' + formatMinutes(e); }
 
 function nowMinutes() {
-  const d = new Date();
+  const d = simNow();
   return d.getHours() * 60 + d.getMinutes();
 }
 
 function todayDateStr() {
-  const d = new Date();
+  const d = simNow();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
@@ -684,13 +786,21 @@ function renderHeader(opts) {
   const userChip = opts.showUser && STATE.personId
     ? `<button class="user-chip" id="hdr-user">${escapeHtml(getPersonName(STATE.personId))}</button>`
     : '';
+  // Sim button — always shown so testers can toggle from any screen, including
+  // the picker. Highlighted (orange) whenever an override is active.
+  const simBtn = `<button class="sim-btn${simActive() ? ' active' : ''}" id="hdr-sim" aria-label="Simulate date/time" title="Simulate date/time">⏱</button>`;
+  const banner = simActive()
+    ? `<div class="sim-banner" id="sim-banner"><span>${escapeHtml(formatSimBadge())}</span><button class="sim-clear" id="sim-banner-clear">Clear</button></div>`
+    : '';
   // Title may contain trusted markup (the brand span); call sites pass only literals.
   return `
     <header class="app-header">
       ${back}
       <h1>${opts.title || 'PW<span class="accent">onsite</span>'}</h1>
+      ${simBtn}
       ${userChip}
-    </header>`;
+    </header>
+    ${banner}`;
 }
 
 function getPersonName(personId) {
@@ -1107,7 +1217,7 @@ async function submitFeedback() {
   const day = d.dayId ? STATE.data.days.find(x => x.id === d.dayId) : null;
   const act = d.activityId ? STATE.data.activities.find(x => x.id === d.activityId) : null;
   const ftype = FEEDBACK_TYPES.find(t => t.key === d.type);
-  const now = new Date();
+  const now = simNow();
   const submittedMinute = now.getHours() * 60 + now.getMinutes();
   const submittedDateStr = todayDateStr();
 
@@ -1172,6 +1282,88 @@ function ensureNowTimer() {
   }, 60000);
 }
 
+function rerenderCurrent() {
+  // After a sim change the header (banner + chip color) and any time-driven
+  // content needs to refresh. Picker has no "now" content but still needs the
+  // header re-rendered so the SIM badge state matches.
+  if (STATE.screen === 'picker')         renderPicker();
+  else if (STATE.screen === 'dashboard') renderDashboard();
+  else if (STATE.screen === 'schedule')  renderSchedule();
+  else if (STATE.screen === 'feedback')  renderFeedback();
+}
+
+/* ---- Sim sheet ---- */
+function openSimSheet() {
+  // Lazily inject the overlay so it doesn't bloat the picker DOM.
+  let overlay = $('#sim-sheet-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'sim-sheet-overlay';
+    overlay.className = 'act-pick-overlay';
+    document.body.appendChild(overlay);
+  }
+  const cur = simNow();
+  const pad = n => String(n).padStart(2, '0');
+  const dateVal = `${cur.getFullYear()}-${pad(cur.getMonth()+1)}-${pad(cur.getDate())}`;
+  const timeVal = `${pad(cur.getHours())}:${pad(cur.getMinutes())}`;
+  // Suggest event days as quick picks if the data is loaded.
+  const dayPicks = (STATE.data && STATE.data.days || []).map(d =>
+    `<option value="${escapeHtml(d.date)}">${escapeHtml(d.label || d.date)}</option>`).join('');
+  overlay.innerHTML = `
+    <div class="act-pick-sheet">
+      <div class="act-pick-head">
+        <div class="act-pick-title">SIMULATE DATE / TIME</div>
+        <button class="act-pick-close" id="sim-sheet-close" aria-label="Close">×</button>
+      </div>
+      <div class="act-pick-list">
+        <div style="font-size:12px;color:#a0a0c0;margin-bottom:14px;line-height:1.5">
+          Set what the app should pretend "now" is. The clock keeps ticking from there. Clear when you're done testing.
+        </div>
+        ${dayPicks ? `<div class="sim-field">
+          <label>Quick pick — event day</label>
+          <select id="sim-day-pick"><option value="">—</option>${dayPicks}</select>
+        </div>` : ''}
+        <div class="sim-field">
+          <label>Date</label>
+          <input type="date" id="sim-date" value="${escapeHtml(dateVal)}">
+        </div>
+        <div class="sim-field">
+          <label>Time</label>
+          <input type="time" id="sim-time" value="${escapeHtml(timeVal)}">
+        </div>
+        <div class="sim-actions">
+          ${simActive() ? `<button class="danger" id="sim-clear">Use real time</button>` : ''}
+          <button class="primary" id="sim-apply">Apply</button>
+        </div>
+      </div>
+    </div>`;
+  overlay.classList.add('show');
+  const dayPick = $('#sim-day-pick');
+  if (dayPick) {
+    dayPick.addEventListener('change', () => {
+      if (dayPick.value) $('#sim-date').value = dayPick.value;
+    });
+  }
+  $('#sim-apply').addEventListener('click', () => {
+    const dv = $('#sim-date').value;
+    const tv = $('#sim-time').value || '00:00';
+    if (!dv) return;
+    const [Y, M, D] = dv.split('-').map(n => parseInt(n, 10));
+    const [h, m]    = tv.split(':').map(n => parseInt(n, 10));
+    const target = new Date(Y, (M||1)-1, D||1, h||0, m||0, 0, 0);
+    if (isNaN(target.getTime())) return;
+    setSimTarget(target);
+    closeSimSheet();
+    rerenderCurrent();
+  });
+  const clr = $('#sim-clear');
+  if (clr) clr.addEventListener('click', () => { clearSim(); closeSimSheet(); rerenderCurrent(); });
+}
+function closeSimSheet() {
+  const overlay = $('#sim-sheet-overlay');
+  if (overlay) overlay.classList.remove('show');
+}
+
 /* ---- Boot ----
    auth.js loads as a deferred ES module, so window._fbReady (the Promise it sets up)
    isn't defined until after the document is parsed. Wait for DOMContentLoaded before
@@ -1180,6 +1372,20 @@ function ensureNowTimer() {
 function _bootMobile() {
   $('#act-pick-close').addEventListener('click', () => $('#act-pick-overlay').classList.remove('show'));
   $('#act-pick-overlay').addEventListener('click', e => { if (e.target.id === 'act-pick-overlay') e.currentTarget.classList.remove('show'); });
+
+  // Header is re-rendered by every screen, so listeners attached per-render
+  // would have to be duplicated five places. Delegate from document instead.
+  document.addEventListener('click', (e) => {
+    const sim = e.target.closest && e.target.closest('#hdr-sim');
+    if (sim) { openSimSheet(); return; }
+    const clr = e.target.closest && e.target.closest('#sim-banner-clear');
+    if (clr) { e.stopPropagation(); clearSim(); rerenderCurrent(); return; }
+    const banner = e.target.closest && e.target.closest('#sim-banner');
+    if (banner) { openSimSheet(); return; }
+    const sheetClose = e.target.closest && e.target.closest('#sim-sheet-close');
+    if (sheetClose) { closeSimSheet(); return; }
+    if (e.target.id === 'sim-sheet-overlay') { closeSimSheet(); return; }
+  });
 
   if (!window._fbReady) {
     $('#app').innerHTML = `<div id="mobile-loading" style="padding:40px;text-align:center;color:#e05555">
