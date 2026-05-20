@@ -987,6 +987,87 @@ body {
   padding: 60px 20px;
   font-size: 13px;
 }
+/* ---- Admin Panel modal ---- */
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #ddd;
+  margin: 0 -20px 14px -20px;
+  padding: 0 20px;
+}
+.admin-tab {
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-family: inherit;
+}
+.admin-tab.active { color: #1a1a2e; border-bottom-color: #e94560; }
+.admin-pane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.admin-pane-hint { font-size: 12px; color: #666; line-height: 1.4; }
+.admin-people-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-people-tbl th, .admin-people-tbl td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+.admin-people-tbl th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #888;
+  font-weight: 700;
+}
+.admin-people-tbl input[type=text], .admin-people-tbl input[type=email], .admin-people-tbl select {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: inherit;
+  background: #fff;
+}
+.admin-people-tbl .admin-teams-cell { font-size: 11px; color: #555; max-width: 140px; }
+.admin-people-tbl .admin-row-actions { white-space: nowrap; text-align: right; }
+.admin-people-tbl .admin-row-actions button {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background: #f6f6f8;
+  cursor: pointer;
+  margin-left: 4px;
+  font-family: inherit;
+}
+.admin-people-tbl .admin-row-actions button.danger { color: #c0392b; border-color: #c0392b; }
+.admin-people-tbl .admin-row-actions button:hover { background: #ebebef; }
+.admin-access-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e6e6ee;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: #fafafd;
+}
+.admin-access-row img { width: 32px; height: 32px; border-radius: 50%; background: #ddd; }
+.admin-access-row .info { flex: 1; min-width: 0; }
+.admin-access-row .name { font-size: 13px; font-weight: 600; }
+.admin-access-row .email { font-size: 11px; color: #888; }
+.admin-access-row .toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.admin-access-row .root-badge { font-size: 10px; padding: 3px 8px; background: #e94560; color: #fff; border-radius: 10px; font-weight: 700; letter-spacing: .04em; }
 .fb-admin-row {
   background: #16161e;
   border: 1px solid #2c2c3e;
@@ -1087,6 +1168,7 @@ body {
     <button class="topbar-btn" id="btn-duplicate-day" title="Copy all activities from another day into the current day">&#10697; Duplicate Day</button>
     <button class="topbar-btn" id="btn-call-sheet">&#128203; Call Sheet</button>
     <button class="topbar-btn" id="btn-feedback-admin" hidden title="Review feedback submitted from the mobile app">&#128172; Feedback</button>
+    <button class="topbar-btn" id="btn-admin-panel" hidden title="Manage people, emails, roles, and admin access">&#9881; Admin</button>
     <button class="topbar-btn" id="btn-reset-data" style="opacity:0.6" title="Wipe all data and reload from Excel import">&#8635; Reset</button>
   </div>
 </header>
@@ -1229,6 +1311,29 @@ body {
   </div>
 
   <!-- Person info modal -->
+  <!-- Admin Panel modal — combined People + Access management. -->
+  <div class="modal-box" id="modal-admin-panel" style="min-width:640px;max-width:840px;max-height:85vh;display:flex;flex-direction:column" hidden>
+    <div class="modal-title">Admin Panel</div>
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="people" type="button">People &amp; Roles</button>
+      <button class="admin-tab" data-tab="access" type="button">Admin Access</button>
+    </div>
+    <div class="admin-pane" data-pane="people" style="flex:1;overflow:auto;min-height:240px">
+      <div class="admin-pane-head">
+        <div class="admin-pane-hint">Schedule people. Email is the Google account that auto-logs them in on mobile.</div>
+        <button class="btn-primary" id="btn-admin-add-person" type="button">+ Add Person</button>
+      </div>
+      <div id="admin-people-table"></div>
+    </div>
+    <div class="admin-pane" data-pane="access" style="flex:1;overflow:auto;min-height:240px" hidden>
+      <div class="admin-pane-hint" style="margin-bottom:10px">Anyone with the <b>Admin</b> box checked can open this panel and manage data. Pending users still need to be approved from the floating Admin button in the corner.</div>
+      <div id="admin-access-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-admin-close" type="button">Close</button>
+    </div>
+  </div>
+
   <div class="modal-box" id="modal-person-info" style="min-width:400px;max-width:520px" hidden>
     <div class="modal-field">
       <label>Name</label>
@@ -1253,8 +1358,8 @@ body {
       <input id="person-info-phone" type="text" placeholder="Phone number...">
     </div>
     <div class="modal-field">
-      <label>Email</label>
-      <input id="person-info-email" type="email" placeholder="Email address...">
+      <label>Email <span style="font-weight:400;color:#8080a0;font-size:11px">(used to auto-log them in on mobile)</span></label>
+      <input id="person-info-email" type="email" placeholder="googleaccount@example.com">
     </div>
     <div class="modal-field">
       <label>Dietary Restrictions</label>
@@ -1421,11 +1526,20 @@ const STORAGE = {
   },
 
   save() {
+    // `visible` is a per-browser filter choice (see LOCAL_FILTER) — strip it before
+    // persisting so one user's filter doesn't broadcast to every other open client.
+    const payload = {
+      ...STATE.data,
+      people: (STATE.data.people || []).map(p => {
+        const { visible, ...rest } = p;
+        return rest;
+      }),
+    };
     // Always cache locally for offline fallback
-    try { localStorage.setItem(this.KEY, JSON.stringify(STATE.data)); } catch(e) {}
+    try { localStorage.setItem(this.KEY, JSON.stringify(payload)); } catch(e) {}
     // Write to Firebase if connected (broadcasts to all open clients)
     if (this._dataRef) {
-      this._fb.set(this._dataRef, STATE.data).catch(e => console.warn('Firebase write failed:', e));
+      this._fb.set(this._dataRef, payload).catch(e => console.warn('Firebase write failed:', e));
     }
   },
 
@@ -2557,6 +2671,38 @@ const MODAL = {
 /* ============================================================
    SECTION 10: FILTER
    ============================================================ */
+// Filter is a per-browser preference, not shared state. Persisted as the set of
+// hidden person IDs so newly-added people default to visible without any sync.
+const LOCAL_FILTER = {
+  KEY: 'pwonsite_hidden_people',
+  hidden: new Set(),
+  load() {
+    try {
+      const raw = localStorage.getItem(this.KEY);
+      if (raw) this.hidden = new Set(JSON.parse(raw));
+    } catch(e) { this.hidden = new Set(); }
+  },
+  save() {
+    try { localStorage.setItem(this.KEY, JSON.stringify([...this.hidden])); } catch(e) {}
+  },
+  apply(people) {
+    (people || []).forEach(p => { p.visible = !this.hidden.has(p.id); });
+  },
+  setHidden(personId, hidden) {
+    if (hidden) this.hidden.add(personId);
+    else this.hidden.delete(personId);
+    this.save();
+  },
+};
+LOCAL_FILTER.load();
+
+function _refreshFilterViews() {
+  RENDER.filterPanel();
+  RENDER.personHeaders();
+  RENDER.grid();
+  RENDER.timeGutter();
+}
+
 const FILTER = {
   toggle() {
     STATE.filterPanelOpen = !STATE.filterPanelOpen;
@@ -2568,31 +2714,28 @@ const FILTER = {
     const person = STATE.data.people.find(p => p.id === personId);
     if (!person) return;
     person.visible = visible;
-    STORAGE.save();
-    RENDER.filterPanel();
-    RENDER.personHeaders();
-    RENDER.grid();
-    RENDER.timeGutter();
+    LOCAL_FILTER.setHidden(personId, !visible);
+    _refreshFilterViews();
   },
 
   setAll(visible) {
     STATE.data.people.forEach(p => p.visible = visible);
-    STORAGE.save();
-    RENDER.filterPanel();
-    RENDER.personHeaders();
-    RENDER.grid();
-    RENDER.timeGutter();
+    if (visible) LOCAL_FILTER.hidden.clear();
+    else STATE.data.people.forEach(p => LOCAL_FILTER.hidden.add(p.id));
+    LOCAL_FILTER.save();
+    _refreshFilterViews();
   },
 
   setTeam(teamId, visible) { // toggle all people who belong to this team
     STATE.data.people.forEach(p => {
-      if ((p.teamIds||[]).includes(teamId)) p.visible = visible;
+      if ((p.teamIds||[]).includes(teamId)) {
+        p.visible = visible;
+        if (visible) LOCAL_FILTER.hidden.delete(p.id);
+        else LOCAL_FILTER.hidden.add(p.id);
+      }
     });
-    STORAGE.save();
-    RENDER.filterPanel();
-    RENDER.personHeaders();
-    RENDER.grid();
-    RENDER.timeGutter();
+    LOCAL_FILTER.save();
+    _refreshFilterViews();
   },
 };
 
@@ -3300,6 +3443,196 @@ const FEEDBACK_ADMIN = {
 };
 
 /* ============================================================
+   SECTION 14C: ADMIN PANEL
+   Unified admin modal — schedule people (CRUD/email/role) + admin access
+   (toggle `isAdmin` flag on approvedUsers). The hardcoded root admin from
+   auth.js (rootAdminEmail) cannot be demoted from here.
+   ============================================================ */
+const ADMIN_PANEL = {
+  _approved: {},
+  _approvedBound: false,
+  _activeTab: 'people',
+
+  open() {
+    if (!(window._fbAuth && window._fbAuth.isAdmin)) return;
+    this._activeTab = 'people';
+    this._bindApproved();
+    MODAL.show('modal-admin-panel');
+    this._showTab('people');
+  },
+
+  _esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  },
+
+  _showTab(name) {
+    this._activeTab = name;
+    document.querySelectorAll('#modal-admin-panel .admin-tab').forEach(t => {
+      t.classList.toggle('active', t.getAttribute('data-tab') === name);
+    });
+    document.querySelectorAll('#modal-admin-panel .admin-pane').forEach(p => {
+      p.hidden = p.getAttribute('data-pane') !== name;
+    });
+    if (name === 'people') this._renderPeople();
+    else this._renderAccess();
+  },
+
+  _bindApproved() {
+    if (this._approvedBound) return;
+    if (!window._fb) return;
+    this._approvedBound = true;
+    const refRoot = window._fb.ref(window._fb.db, 'approvedUsers');
+    window._fb.onValue(refRoot, snap => {
+      this._approved = snap.val() || {};
+      // Repaint if the access tab is currently visible
+      if (this._activeTab === 'access' && !document.getElementById('modal-admin-panel').hidden) {
+        this._renderAccess();
+      }
+    });
+  },
+
+  _renderPeople() {
+    const wrap = document.getElementById('admin-people-table');
+    if (!wrap) return;
+    const people = (STATE.data && STATE.data.people || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+    if (!people.length) {
+      wrap.innerHTML = '<div style="text-align:center;color:#888;padding:30px">No people yet. Click "+ Add Person" to create one.</div>';
+      return;
+    }
+    const roleOpts = ['<option value="">— role —</option>']
+      .concat(SHOW_ROLES.map(r => `<option value="${this._esc(r)}">${this._esc(r)}</option>`)).join('');
+    const rows = people.map(p => {
+      const teamNames = (p.teamIds || []).map(tid => (TEAMS[tid] && TEAMS[tid].name) || tid).join(', ') || '—';
+      return `
+        <tr data-pid="${this._esc(p.id)}">
+          <td><input type="text" class="adm-name"  value="${this._esc(p.name || '')}"></td>
+          <td><select class="adm-role">${roleOpts.replace(`value="${this._esc(p.role || '')}"`, `value="${this._esc(p.role || '')}" selected`)}</select></td>
+          <td><input type="email" class="adm-email" value="${this._esc(p.email || '')}" placeholder="email@example.com"></td>
+          <td class="admin-teams-cell">${this._esc(teamNames)}</td>
+          <td class="admin-row-actions">
+            <button class="adm-edit" type="button" title="Open full editor (phone, teams, notes...)">Edit&hellip;</button>
+            <button class="adm-del danger" type="button" title="Delete this person">Delete</button>
+          </td>
+        </tr>`;
+    }).join('');
+    wrap.innerHTML = `
+      <table class="admin-people-tbl">
+        <thead><tr><th>Name</th><th>Role</th><th>Email (login)</th><th>Teams</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    // Wire inline edits — commit on blur/change so the user can tab through quickly.
+    wrap.querySelectorAll('tr[data-pid]').forEach(tr => {
+      const pid = tr.getAttribute('data-pid');
+      const commit = (field, value) => {
+        const person = STATE.data.people.find(x => x.id === pid);
+        if (!person) return;
+        if (person[field] === value) return;
+        person[field] = value;
+        STORAGE.save();
+        RENDER.personHeaders();
+        RENDER.grid();
+      };
+      tr.querySelector('.adm-name').addEventListener('change', e => commit('name', e.target.value.trim()));
+      tr.querySelector('.adm-role').addEventListener('change', e => commit('role', e.target.value));
+      tr.querySelector('.adm-email').addEventListener('change', e => commit('email', e.target.value.trim()));
+      tr.querySelector('.adm-edit').addEventListener('click', () => {
+        // Close this modal first so the person-info modal can take over the overlay.
+        MODAL.hide();
+        PERSONCARD.open(pid);
+      });
+      tr.querySelector('.adm-del').addEventListener('click', () => {
+        const person = STATE.data.people.find(x => x.id === pid);
+        if (!person) return;
+        if (!confirm(`Delete "${person.name}"? Their activities will also be removed. This cannot be undone.`)) return;
+        STATE.data.activities = STATE.data.activities.filter(a => a.personId !== pid);
+        STATE.data.people = STATE.data.people.filter(p => p.id !== pid);
+        STORAGE.save();
+        RENDER.all();
+        this._renderPeople();
+      });
+    });
+  },
+
+  _renderAccess() {
+    const wrap = document.getElementById('admin-access-list');
+    if (!wrap) return;
+    const rootEmail = ((window._fbAuth && window._fbAuth.rootAdminEmail) || '').toLowerCase();
+    const myUid    = (window._fbAuth && window._fbAuth.user && window._fbAuth.user.uid) || null;
+    const entries  = Object.entries(this._approved || {});
+
+    // Synthesize a row for the hardcoded root admin so it's clear who can never
+    // be demoted, even if they haven't gone through the approval flow.
+    const rootRow = `
+      <div class="admin-access-row">
+        <div style="width:32px;height:32px;border-radius:50%;background:#e94560;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700">R</div>
+        <div class="info">
+          <div class="name">Root admin</div>
+          <div class="email">${this._esc(rootEmail)}</div>
+        </div>
+        <div class="root-badge">ROOT</div>
+      </div>`;
+
+    if (!entries.length) {
+      wrap.innerHTML = rootRow + '<div style="text-align:center;color:#888;padding:24px 0;font-size:12px">No other approved users yet. Approve people from the floating Admin button (bottom-right).</div>';
+      return;
+    }
+
+    const sorted = entries.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
+    const rowsHtml = sorted.map(([uid, u]) => {
+      const isSelf = uid === myUid;
+      const isAdminFlag = !!u.isAdmin;
+      const photo = u.photo ? `<img src="${this._esc(u.photo)}" referrerpolicy="no-referrer" alt="">` : `<div style="width:32px;height:32px;border-radius:50%;background:#ddd"></div>`;
+      return `
+        <div class="admin-access-row" data-uid="${this._esc(uid)}">
+          ${photo}
+          <div class="info">
+            <div class="name">${this._esc(u.name || '(no name)')}${isSelf ? ' <span style="font-size:10px;color:#888">(you)</span>' : ''}</div>
+            <div class="email">${this._esc(u.email || '')}</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" class="adm-isadmin" ${isAdminFlag ? 'checked' : ''} ${isSelf ? 'disabled' : ''}>
+            Admin
+          </label>
+          <button class="adm-revoke" type="button" style="padding:4px 10px;font-size:11px;border-radius:4px;border:1px solid #ccc;background:#f6f6f8;cursor:pointer;font-family:inherit" ${isSelf ? 'disabled style="opacity:.4"' : ''}>Revoke</button>
+        </div>`;
+    }).join('');
+
+    wrap.innerHTML = rootRow + rowsHtml;
+
+    wrap.querySelectorAll('.admin-access-row[data-uid]').forEach(row => {
+      const uid = row.getAttribute('data-uid');
+      const cb  = row.querySelector('.adm-isadmin');
+      const rev = row.querySelector('.adm-revoke');
+      if (cb && !cb.disabled) {
+        cb.addEventListener('change', async () => {
+          try {
+            await window._fb.set(
+              window._fb.ref(window._fb.db, `approvedUsers/${uid}/isAdmin`),
+              cb.checked ? true : null
+            );
+          } catch (e) {
+            cb.checked = !cb.checked;
+            alert('Could not update admin flag: ' + (e.message || e));
+          }
+        });
+      }
+      if (rev && !rev.disabled) {
+        rev.addEventListener('click', async () => {
+          const u = this._approved[uid];
+          if (!confirm(`Revoke access for ${u && u.email || 'this user'}? They will need to be re-approved to use the app again.`)) return;
+          try {
+            await window._fb.set(window._fb.ref(window._fb.db, `approvedUsers/${uid}`), null);
+          } catch (e) {
+            alert('Could not revoke: ' + (e.message || e));
+          }
+        });
+      }
+    });
+  },
+};
+
+/* ============================================================
    SECTION 15: WEATHER
    ============================================================ */
 const WEATHER = {
@@ -3365,6 +3698,9 @@ function _applyData(data, isFirstLoad) {
     if (p.dietary  === undefined) p.dietary  = '';
     if (p.notes    === undefined) p.notes    = '';
   });
+  // Visibility is local to this browser — derive it from LOCAL_FILTER, not the
+  // shared snapshot. New people default to visible (not in the hidden set).
+  LOCAL_FILTER.apply(data.people);
 
   STATE.data = data;
   const savedDayId = data.settings && data.settings.visibleDayId;
@@ -3434,6 +3770,7 @@ function init() {
     if (isAdmin) {
       document.getElementById('btn-feedback-admin').hidden = false;
       FEEDBACK_ADMIN.bind();
+      document.getElementById('btn-admin-panel').hidden = false;
     }
     if (!STORAGE.initFirebase()) {
       _setSyncStatus('offline');
@@ -3537,6 +3874,25 @@ function init() {
   document.getElementById('btn-call-sheet').addEventListener('click', () => CALLSHEET.open());
   document.getElementById('btn-callsheet-close').addEventListener('click', () => CALLSHEET.close());
   document.getElementById('btn-export-zip').addEventListener('click', () => ZIP.export(STATE.activeDay.id));
+
+  // ---- Event: Admin Panel ----
+  document.getElementById('btn-admin-panel').addEventListener('click', () => ADMIN_PANEL.open());
+  document.getElementById('btn-admin-close').addEventListener('click', () => MODAL.hide());
+  document.querySelectorAll('#modal-admin-panel .admin-tab').forEach(tab => {
+    tab.addEventListener('click', () => ADMIN_PANEL._showTab(tab.getAttribute('data-tab')));
+  });
+  document.getElementById('btn-admin-add-person').addEventListener('click', () => {
+    // Inline prompt — keeps us in the admin modal flow without juggling overlays.
+    // After creation we open the full person editor so the admin can fill in
+    // email, role, teams, etc. immediately.
+    const name = prompt('Name for the new person:');
+    if (!name || !name.trim()) return;
+    const added = CRUD.addPerson(name.trim());
+    if (added) {
+      MODAL.hide();
+      PERSONCARD.open(added.id);
+    }
+  });
 
   // ---- Event: Feedback admin (mobile-app inbox) ----
   document.getElementById('btn-feedback-admin').addEventListener('click', () => FEEDBACK_ADMIN.open());

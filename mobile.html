@@ -740,15 +740,29 @@ function relativeText(min, isToday) {
 }
 
 function findCurrentActivity(personId, dayId) {
+  const acts = findCurrentActivities(personId, dayId);
+  return acts[0] || null;
+}
+
+function findCurrentActivities(personId, dayId) {
   const acts = getActivitiesFor(personId, dayId);
   const m = nowMinutes();
-  return acts.find(a => a.startMinute <= m && m < a.endMinute) || null;
+  return acts.filter(a => a.startMinute <= m && m < a.endMinute);
 }
 
 function findNextActivity(personId, dayId) {
+  const acts = findNextActivities(personId, dayId);
+  return acts[0] || null;
+}
+
+function findNextActivities(personId, dayId) {
+  // All activities that share the soonest upcoming start time. Returning an
+  // array lets the dashboard show concurrent events instead of dropping one.
   const acts = getActivitiesFor(personId, dayId);
   const m = nowMinutes();
-  return acts.find(a => a.startMinute > m) || null;
+  const first = acts.find(a => a.startMinute > m);
+  if (!first) return [];
+  return acts.filter(a => a.startMinute === first.startMinute);
 }
 
 function findNextMeal(personId, dayId, data, isToday) {
@@ -870,16 +884,33 @@ function renderDashboard() {
   if (!person) { goPicker(); return; }
   const today = findCurrentDay(STATE.data);
   const isToday = today && today.date === todayDateStr();
-  const cur  = isToday ? findCurrentActivity(STATE.personId, today.id) : null;
+  const curList = isToday && today ? findCurrentActivities(STATE.personId, today.id) : [];
   const todayActs = today ? getActivitiesFor(STATE.personId, today.id) : [];
-  const next = isToday
-    ? findNextActivity(STATE.personId, today.id)
-    : todayActs[0] || null;
+  let nextList;
+  if (isToday && today) {
+    nextList = findNextActivities(STATE.personId, today.id);
+  } else if (todayActs.length) {
+    // Off-day view: show every activity that shares the earliest start time.
+    const firstStart = todayActs[0].startMinute;
+    nextList = todayActs.filter(a => a.startMinute === firstStart);
+  } else {
+    nextList = [];
+  }
   const meal = findNextMeal(STATE.personId, today ? today.id : null, STATE.data, isToday);
   const remaining = isToday
     ? todayActs.filter(a => a.endMinute > nowMinutes())
     : todayActs;
+  // Exclude activities already shown in the NOW / NEXT UP cards so they don't
+  // appear twice in "REST OF DAY".
+  const shownIds = new Set([...curList, ...nextList].map(a => a.id));
+  const remainingFiltered = remaining.filter(a => !shownIds.has(a.id));
 
+  const eventCards = (label, acts) => {
+    if (!acts.length) return eventCard(label, null);
+    // When multiple events share a slot, label only the first card; the others
+    // get a "+ also at this time" badge so it's clear they're concurrent.
+    return acts.map((a, i) => eventCard(i === 0 ? label : label + ' · ALSO', a)).join('');
+  };
   const eventCard = (label, act) => {
     if (!act) return `
       <div class="card">
@@ -934,10 +965,10 @@ function renderDashboard() {
       </div>`;
   }
 
-  const remainingHtml = remaining.length ? `
+  const remainingHtml = remainingFiltered.length ? `
     <div class="card">
       <div class="card-label">${isToday ? 'REST OF DAY' : escapeHtml((today && today.shortLabel) || 'SCHEDULE')}</div>
-      ${remaining.slice(0, 5).map(a => {
+      ${remainingFiltered.slice(0, 5).map(a => {
         const t = ACTIVITY_TYPES[a.typeKey] || ACTIVITY_TYPES.MEETING;
         return `
           <div class="event-block" style="margin-top:8px">
@@ -948,7 +979,7 @@ function renderDashboard() {
             </div>
           </div>`;
       }).join('')}
-      ${remaining.length > 5 ? `<div style="font-size:12px;color:#8080a0;margin-top:10px;text-align:center">+${remaining.length - 5} more — tap Schedule</div>` : ''}
+      ${remainingFiltered.length > 5 ? `<div style="font-size:12px;color:#8080a0;margin-top:10px;text-align:center">+${remainingFiltered.length - 5} more — tap Schedule</div>` : ''}
     </div>` : '';
 
   const dayLine = today
@@ -964,8 +995,10 @@ function renderDashboard() {
         <div class="name">${escapeHtml(person.name)}</div>
         <div class="when">${escapeHtml(dayLine)}</div>
       </div>
-      ${eventCard(cur ? 'NOW' : 'NEXT UP', cur || next)}
-      ${cur && next ? eventCard('NEXT UP', next) : ''}
+      ${simActive() ? `<div style="font-size:11px;color:#8080a0;background:#1a1a2e;border:1px dashed #404068;border-radius:6px;padding:6px 10px;margin-bottom:10px;font-family:monospace">DEBUG · now=${nowMinutes()}min · curList(${curList.length}): ${curList.map(a => escapeHtml(a.label) + '[' + a.startMinute + '–' + a.endMinute + ']').join(', ') || '—'} · nextList(${nextList.length}): ${nextList.map(a => escapeHtml(a.label) + '[' + a.startMinute + '–' + a.endMinute + ']').join(', ') || '—'}</div>` : ''}
+      ${curList.length ? eventCards('NOW', curList) : ''}
+      ${nextList.length ? eventCards('NEXT UP', nextList)
+                        : (curList.length ? '' : eventCard('NEXT UP', null))}
       ${mealHtml}
       ${remainingHtml}
       <div class="dash-actions">
@@ -1407,11 +1440,33 @@ function _bootMobile() {
       }
       STATE.data = val;
       // Restore selection
+      //
+      // Priority on a fresh session:
+      //   1. Match the logged-in Google email against a person.email (admins set
+      //      this on the desktop). Group-only slots like "MM Editor 2" get a
+      //      specific email, so each crew member lands on the right schedule
+      //      without ever seeing the picker.
+      //   2. Fall back to the last-used personId in localStorage (lets a tester
+      //      pick a different person via the user-chip and have it stick).
+      //
+      // Once STATE.personId is set, subsequent onValue snapshots keep it (we
+      // only re-check on null / invalid). Manual switches via the user-chip
+      // still win for the rest of the session because they write to localStorage.
       if (!STATE.personId) {
-        try {
-          const saved = localStorage.getItem(PERSON_KEY);
-          if (saved && val.people.some(p => p.id === saved)) STATE.personId = saved;
-        } catch (e) {}
+        const myEmail = ((STATE.user && STATE.user.email) || '').trim().toLowerCase();
+        let matched = null;
+        if (myEmail) {
+          matched = val.people.find(p => (p.email || '').trim().toLowerCase() === myEmail);
+        }
+        if (matched) {
+          STATE.personId = matched.id;
+          try { localStorage.setItem(PERSON_KEY, matched.id); } catch (e) {}
+        } else {
+          try {
+            const saved = localStorage.getItem(PERSON_KEY);
+            if (saved && val.people.some(p => p.id === saved)) STATE.personId = saved;
+          } catch (e) {}
+        }
       } else if (!val.people.some(p => p.id === STATE.personId)) {
         STATE.personId = null;
         try { localStorage.removeItem(PERSON_KEY); } catch (e) {}

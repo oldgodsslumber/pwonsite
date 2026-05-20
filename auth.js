@@ -153,14 +153,19 @@ onAuthStateChanged(auth, async user => {
     renderSignIn();
     return;
   }
-  isAdmin = (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-  if (isAdmin) { grantAccess(user); return; }
+  // The hardcoded ADMIN_EMAIL is the "root" admin — always admin, never lockable
+  // out. Additional admins are flagged on approvedUsers/{uid}.isAdmin, set from
+  // the in-app admin panel.
+  const isRoot = (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  isAdmin = isRoot;
+  if (isRoot) { grantAccess(user); return; }
 
   // Approved?
   let approved = false;
   try {
     const snap = await get(ref(db, `approvedUsers/${user.uid}`));
     approved = snap.exists();
+    if (approved && snap.val() && snap.val().isAdmin === true) isAdmin = true;
   } catch (_) { /* fall through */ }
 
   if (approved) { grantAccess(user); return; }
@@ -182,16 +187,16 @@ onAuthStateChanged(auth, async user => {
 function grantAccess(user) {
   hideOverlay();
   window._fb = { db, ref, set, get, onValue };
-  window._fbAuth = { user, isAdmin, signOut: () => signOut(auth) };
+  window._fbAuth = { user, isAdmin, rootAdminEmail: ADMIN_EMAIL, signOut: () => signOut(auth) };
   if (!resolved) {
     resolved = true;
     if (window._fbReadyResolve) {
-      window._fbReadyResolve({ db, ref, set, get, onValue, user, isAdmin });
+      window._fbReadyResolve({ db, ref, set, get, onValue, user, isAdmin, rootAdminEmail: ADMIN_EMAIL });
       window._fbReadyResolve = null;
     }
   }
   window.dispatchEvent(new CustomEvent('pwonsite:auth-ready', {
-    detail: { db, ref, set, get, onValue, user, isAdmin }
+    detail: { db, ref, set, get, onValue, user, isAdmin, rootAdminEmail: ADMIN_EMAIL }
   }));
   if (isAdmin) setupAdminUI();
 }
