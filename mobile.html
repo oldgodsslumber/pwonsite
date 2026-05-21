@@ -905,11 +905,35 @@ function renderDashboard() {
   const shownIds = new Set([...curList, ...nextList].map(a => a.id));
   const remainingFiltered = remaining.filter(a => !shownIds.has(a.id));
 
+  const eventBlock = (act, isCurrentSlot) => {
+    const t = ACTIVITY_TYPES[act.typeKey] || ACTIVITY_TYPES.MEETING;
+    const rel = relativeText(act.startMinute, isToday);
+    return `
+      <div class="event-block">
+        <div class="event-bar" style="background:${escapeHtml(t.color)}"></div>
+        <div class="event-info">
+          <div class="event-title">${escapeHtml(act.label)}</div>
+          <div class="event-time">${escapeHtml(formatRange(act.startMinute, act.endMinute))}</div>
+          <span class="event-type-pill" style="background:${escapeHtml(t.color)};color:${escapeHtml(t.textColor)}">${escapeHtml(t.label)}</span>
+          ${rel ? `<div class="event-relative ${isCurrentSlot ? 'muted' : ''}">${escapeHtml(rel)}</div>` : ''}
+          ${act.notes ? `<div class="event-notes">${escapeHtml(act.notes)}</div>` : ''}
+        </div>
+      </div>`;
+  };
   const eventCards = (label, acts) => {
     if (!acts.length) return eventCard(label, null);
-    // When multiple events share a slot, label only the first card; the others
-    // get a "+ also at this time" badge so it's clear they're concurrent.
-    return acts.map((a, i) => eventCard(i === 0 ? label : label + ' · ALSO', a)).join('');
+    // One card, multiple stacked event blocks — overlapping/concurrent events
+    // share the same NOW / NEXT UP heading instead of getting their own card.
+    const isCurrentSlot = label === 'NOW';
+    const blocks = acts.map((a, i) =>
+      eventBlock(a, isCurrentSlot) +
+      (i < acts.length - 1 ? '<div style="height:1px;background:#2c2c3e;margin:10px 0"></div>' : '')
+    ).join('');
+    return `
+      <div class="card">
+        <div class="card-label">${escapeHtml(label)}${acts.length > 1 ? ` <span style="color:#e94560">· ${acts.length} concurrent</span>` : ''}</div>
+        ${blocks}
+      </div>`;
   };
   const eventCard = (label, act) => {
     if (!act) return `
@@ -917,21 +941,10 @@ function renderDashboard() {
         <div class="card-label">${escapeHtml(label)}</div>
         <div class="card-empty">Nothing scheduled.</div>
       </div>`;
-    const t = ACTIVITY_TYPES[act.typeKey] || ACTIVITY_TYPES.MEETING;
-    const rel = relativeText(act.startMinute, isToday);
     return `
       <div class="card">
         <div class="card-label">${escapeHtml(label)}</div>
-        <div class="event-block">
-          <div class="event-bar" style="background:${escapeHtml(t.color)}"></div>
-          <div class="event-info">
-            <div class="event-title">${escapeHtml(act.label)}</div>
-            <div class="event-time">${escapeHtml(formatRange(act.startMinute, act.endMinute))}</div>
-            <span class="event-type-pill" style="background:${escapeHtml(t.color)};color:${escapeHtml(t.textColor)}">${escapeHtml(t.label)}</span>
-            ${rel ? `<div class="event-relative ${label === 'NOW' ? 'muted' : ''}">${escapeHtml(rel)}</div>` : ''}
-            ${act.notes ? `<div class="event-notes">${escapeHtml(act.notes)}</div>` : ''}
-          </div>
-        </div>
+        ${eventBlock(act, label === 'NOW')}
       </div>`;
   };
 
@@ -995,7 +1008,6 @@ function renderDashboard() {
         <div class="name">${escapeHtml(person.name)}</div>
         <div class="when">${escapeHtml(dayLine)}</div>
       </div>
-      ${simActive() ? `<div style="font-size:11px;color:#8080a0;background:#1a1a2e;border:1px dashed #404068;border-radius:6px;padding:6px 10px;margin-bottom:10px;font-family:monospace">DEBUG · now=${nowMinutes()}min · curList(${curList.length}): ${curList.map(a => escapeHtml(a.label) + '[' + a.startMinute + '–' + a.endMinute + ']').join(', ') || '—'} · nextList(${nextList.length}): ${nextList.map(a => escapeHtml(a.label) + '[' + a.startMinute + '–' + a.endMinute + ']').join(', ') || '—'}</div>` : ''}
       ${curList.length ? eventCards('NOW', curList) : ''}
       ${nextList.length ? eventCards('NEXT UP', nextList)
                         : (curList.length ? '' : eventCard('NEXT UP', null))}
